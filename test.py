@@ -9,7 +9,7 @@ from tensorflow.keras.models import Model
 # ======================
 # LOAD MODELS
 # ======================
-model = load_model("violence_model.h5")
+model = load_model(r"E:\data\violence_model.h5")
 
 base = VGG16(weights='imagenet', include_top=True)
 cnn_model = Model(inputs=base.input,

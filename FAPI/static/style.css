@@ -1,0 +1,95 @@
+body {
+    margin: 0;
+    background: #0f172a;
+    color: white;
+    font-family: Arial;
+}
+
+/* SIDEBAR */
+.sidebar {
+    width: 220px;
+    height: 100vh;
+    background: #020617;
+    position: fixed;
+    padding: 20px;
+    transition: 0.3s;
+}
+
+.sidebar a {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    margin: 5px 0;
+    background: #111827;
+    border-radius: 6px;
+    color: white;
+    text-decoration: none;
+}
+
+.sidebar a:hover {
+    background: #2563eb;
+}
+
+.sidebar span {
+    margin-right: 10px;
+}
+
+/* MAIN */
+.main {
+    margin-left: 240px;
+    padding: 20px;
+    transition: 0.3s;
+}
+
+/* VIDEO */
+video {
+    width: 100%;
+    border-radius: 10px;
+}
+
+.video-box {
+    background: #020617;
+    padding: 10px;
+    border-radius: 10px;
+}
+
+/* CARD */
+.card {
+    background: #020617;
+    border: none;
+}
+
+/* HISTORY */
+.history {
+    height: 200px;
+    overflow-y: auto;
+}
+
+/* TOPBAR */
+.topbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+/* COLLAPSE */
+.sidebar.collapsed {
+    width: 70px;
+}
+
+.sidebar.collapsed .text {
+    display: none;
+}
+
+.sidebar.collapsed .logo {
+    display: none;
+}
+
+.sidebar.collapsed a {
+    justify-content: center;
+}
+
+.main.collapsed {
+    margin-left: 90px;
+}
