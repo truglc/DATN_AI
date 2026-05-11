@@ -63,21 +63,52 @@
             <button class="btn btn-primary mt-2">Upload</button>
         </form>
 
-        <!-- VIDEO GRID -->
-        <div class="row">
-            {% for v in videos[:4] %}
-            <div class="col-md-6 mb-3">
-                <div class="video-box">
-                    <video controls>
-                        <source src="{{ url_for('uploaded_file', filename=v[1]) }}">
-                    </video>
+        <!-- DÙNG ĐOẠN NÀY THAY CHO PHẦN HIỂN THỊ VIDEO -->
+        {% if latest_video %}
+        <div class="card p-3 mb-4">
+            <h4>🎥 Video đang phát (YOLO Detection)</h4>
 
-                    <button class="btn btn-danger mt-2" onclick="triggerAlert({{v[0]}})">
-                        Test Alert
-                    </button>
-                </div>
+            <img id="mainVideo" class="video-box" src="{{ url_for('video_feed', filename=latest_video[1]) }}"
+                style="width: 100%; border-radius: 10px;" alt="Video Stream">
+
+            <div class="mt-2 text-success">
+                ▶️ {{ latest_video[1] }}
             </div>
-            {% endfor %}
+        </div>
+
+        <script>
+            window.onload = function () {
+                const video = document.getElementById("mainVideo");
+
+                if (video) {
+                    // Buộc load lại nguồn video
+                    video.load();
+
+                    // Tự phát
+                    const promise = video.play();
+
+                    if (promise !== undefined) {
+                        promise.catch(error => {
+                            console.log("Autoplay bị chặn:", error);
+                        });
+                    }
+
+                    // Lặp lại khi kết thúc
+                    video.addEventListener("ended", function () {
+                        video.currentTime = 0;
+                        video.play();
+                    });
+
+                    // Debug lỗi
+                    video.addEventListener("error", function () {
+                        alert("Không thể phát video. Hãy chắc chắn file là MP4 chuẩn H.264.");
+                    });
+                }
+            };
+        </script>
+        {% endif %}
+        <div class="mb-3">
+            <a href="/camera" class="btn btn-success">Live Camera</a>
         </div>
 
         <!-- HISTORY + CHART -->
@@ -125,162 +156,160 @@
 
     <!-- JS -->
     <script src="/static/script.js"></script>
-    <scripts>
-        <script>
-            /* ===== SIDEBAR ===== */
-            function toggleSidebar() {
-                let sidebar = document.getElementById("sidebar");
-                let main = document.querySelector(".main");
-                sidebar.classList.toggle("collapsed");
-                main.classList.toggle("collapsed");
+    <script>
+        /* ===== SIDEBAR ===== */
+        function toggleSidebar() {
+            let sidebar = document.getElementById("sidebar");
+            let main = document.querySelector(".main");
+            sidebar.classList.toggle("collapsed");
+            main.classList.toggle("collapsed");
+        }
+
+        /* ===== FAKE KPI ===== */
+        let alertCount = 0;
+        let safeCount = 20;
+
+        function updateKPI() {
+            document.getElementById("alertToday").innerText = alertCount;
+        }
+
+        /* ===== FAKE HOURLY DATA ===== */
+        function fakeHourlyData() {
+            let labels = [];
+            let values = [];
+
+            for (let i = 0; i < 24; i++) {
+                labels.push(i + ":00");
+
+                let base = Math.floor(Math.random() * 3);
+
+                // giả lập giờ tối nhiều bạo lực hơn
+                if (i >= 20 || i <= 2) base += 2;
+
+                values.push(base);
             }
 
-            /* ===== FAKE KPI ===== */
-            let alertCount = 0;
-            let safeCount = 20;
+            return { labels, values };
+        }
 
-            function updateKPI() {
-                document.getElementById("alertToday").innerText = alertCount;
+        /* ===== FAKE DAILY DATA ===== */
+        function fakeDailyData(days = 7) {
+            let labels = [];
+            let values = [];
+
+            for (let i = days - 1; i >= 0; i--) {
+                let d = new Date();
+                d.setDate(d.getDate() - i);
+
+                labels.push(d.toISOString().slice(5, 10));
+
+                let value = Math.floor(Math.random() * 4);
+
+                // cuối tuần tăng
+                if (d.getDay() === 0 || d.getDay() === 6) value += 2;
+
+                values.push(value);
             }
 
-            /* ===== FAKE HOURLY DATA ===== */
-            function fakeHourlyData() {
-                let labels = [];
-                let values = [];
+            return { labels, values };
+        }
 
-                for (let i = 0; i < 24; i++) {
-                    labels.push(i + ":00");
+        /* ===== DRAW CHARTS ===== */
+        let hourlyChart, dailyChart, pieChart;
 
-                    let base = Math.floor(Math.random() * 3);
+        function initCharts() {
+            let hourly = fakeHourlyData();
+            let daily = fakeDailyData();
 
-                    // giả lập giờ tối nhiều bạo lực hơn
-                    if (i >= 20 || i <= 2) base += 2;
+            hourlyChart = new Chart(document.getElementById("chart"), {
+                type: "line",
+                data: {
+                    labels: hourly.labels,
+                    datasets: [{
+                        label: "Alerts theo giờ",
+                        data: hourly.values
+                    }]
+                }
+            });
 
-                    values.push(base);
+            dailyChart = new Chart(document.getElementById("dailyChart"), {
+                type: "bar",
+                data: {
+                    labels: daily.labels,
+                    datasets: [{
+                        label: "Alerts theo ngày",
+                        data: daily.values
+                    }]
+                }
+            });
+
+            pieChart = new Chart(document.getElementById("pieChart"), {
+                type: "pie",
+                data: {
+                    labels: ["Safe", "Violence"],
+                    datasets: [{
+                        data: [safeCount, alertCount]
+                    }]
+                }
+            });
+        }
+
+        /* ===== REALTIME UPDATE ===== */
+        function updateChartsRealtime() {
+            setInterval(() => {
+                let time = new Date().toLocaleTimeString();
+
+                // update line chart
+                hourlyChart.data.labels.push(time);
+                hourlyChart.data.datasets[0].data.push(Math.floor(Math.random() * 5));
+                if (hourlyChart.data.labels.length > 10) {
+                    hourlyChart.data.labels.shift();
+                    hourlyChart.data.datasets[0].data.shift();
+                }
+                hourlyChart.update();
+
+                // update pie
+                pieChart.data.datasets[0].data = [safeCount, alertCount];
+                pieChart.update();
+
+            }, 4000);
+        }
+
+        /* ===== REALTIME HISTORY ===== */
+        function autoFakeAlert() {
+            let history = document.getElementById("historyBox");
+
+            setInterval(() => {
+                let isAlert = Math.random() > 0.5;
+
+                let time = new Date().toLocaleTimeString();
+
+                if (isAlert) {
+                    alertCount++;
+                    history.innerHTML += `<div style="color:red">⚠️ Bạo lực lúc ${time}</div>`;
+                } else {
+                    safeCount++;
+                    history.innerHTML += `<div style="color:lightgreen">✔ Bình thường ${time}</div>`;
                 }
 
-                return { labels, values };
-            }
+                history.scrollTop = history.scrollHeight;
 
-            /* ===== FAKE DAILY DATA ===== */
-            function fakeDailyData(days = 7) {
-                let labels = [];
-                let values = [];
-
-                for (let i = days - 1; i >= 0; i--) {
-                    let d = new Date();
-                    d.setDate(d.getDate() - i);
-
-                    labels.push(d.toISOString().slice(5, 10));
-
-                    let value = Math.floor(Math.random() * 4);
-
-                    // cuối tuần tăng
-                    if (d.getDay() === 0 || d.getDay() === 6) value += 2;
-
-                    values.push(value);
-                }
-
-                return { labels, values };
-            }
-
-            /* ===== DRAW CHARTS ===== */
-            let hourlyChart, dailyChart, pieChart;
-
-            function initCharts() {
-                let hourly = fakeHourlyData();
-                let daily = fakeDailyData();
-
-                hourlyChart = new Chart(document.getElementById("chart"), {
-                    type: "line",
-                    data: {
-                        labels: hourly.labels,
-                        datasets: [{
-                            label: "Alerts theo giờ",
-                            data: hourly.values
-                        }]
-                    }
-                });
-
-                dailyChart = new Chart(document.getElementById("dailyChart"), {
-                    type: "bar",
-                    data: {
-                        labels: daily.labels,
-                        datasets: [{
-                            label: "Alerts theo ngày",
-                            data: daily.values
-                        }]
-                    }
-                });
-
-                pieChart = new Chart(document.getElementById("pieChart"), {
-                    type: "pie",
-                    data: {
-                        labels: ["Safe", "Violence"],
-                        datasets: [{
-                            data: [safeCount, alertCount]
-                        }]
-                    }
-                });
-            }
-
-            /* ===== REALTIME UPDATE ===== */
-            function updateChartsRealtime() {
-                setInterval(() => {
-                    let time = new Date().toLocaleTimeString();
-
-                    // update line chart
-                    hourlyChart.data.labels.push(time);
-                    hourlyChart.data.datasets[0].data.push(Math.floor(Math.random() * 5));
-                    if (hourlyChart.data.labels.length > 10) {
-                        hourlyChart.data.labels.shift();
-                        hourlyChart.data.datasets[0].data.shift();
-                    }
-                    hourlyChart.update();
-
-                    // update pie
-                    pieChart.data.datasets[0].data = [safeCount, alertCount];
-                    pieChart.update();
-
-                }, 4000);
-            }
-
-            /* ===== REALTIME HISTORY ===== */
-            function autoFakeAlert() {
-                let history = document.getElementById("historyBox");
-
-                setInterval(() => {
-                    let isAlert = Math.random() > 0.5;
-
-                    let time = new Date().toLocaleTimeString();
-
-                    if (isAlert) {
-                        alertCount++;
-                        history.innerHTML += `<div style="color:red">⚠️ Bạo lực lúc ${time}</div>`;
-                    } else {
-                        safeCount++;
-                        history.innerHTML += `<div style="color:lightgreen">✔ Bình thường ${time}</div>`;
-                    }
-
-                    history.scrollTop = history.scrollHeight;
-
-                    updateKPI();
-
-                }, 3000);
-            }
-
-            /* ===== INIT ===== */
-            initCharts();
-            updateChartsRealtime();
-            autoFakeAlert();
-
-            /* ===== BUTTON ALERT ===== */
-            function triggerAlert(id) {
-                alertCount++;
                 updateKPI();
-            }
-        </script>
-    </scripts>
+
+            }, 3000);
+        }
+
+        /* ===== INIT ===== */
+        initCharts();
+        updateChartsRealtime();
+        autoFakeAlert();
+
+        /* ===== BUTTON ALERT ===== */
+        function triggerAlert(id) {
+            alertCount++;
+            updateKPI();
+        }
+    </script>
 
 </body>
 

@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Live Camera</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+    <div class="sidebar" id="sidebar">
+        <h4 class="logo">CAM</h4>
+        <a href="/">📊 Dashboard</a>
+        <a href="/camera">📷 Live Camera</a>
+        <a href="/videos">🎥 Video Sources</a>
+        <a href="/alerts">🚨 Alerts</a>
+        <a href="/history">🕒 History</a>
+        <a href="/settings">⚙️ Settings</a>
+    </div>
+
+    <div class="main">
+        <div class="topbar">
+            <button onclick="toggleSidebar()" class="btn btn-dark">☰</button>
+            <h4>Live Camera</h4>
+        </div>
+
+        <div class="card p-4">
+            <h5>Webcam Preview</h5>
+            <img src="/camera_feed" width="700px">
+            <p class="mt-3 text-muted">Nếu bạn không cần upload video, chỉ cần mở camera để xem trực tiếp.</p>
+        </div>
+        <button id="toggleYolo" class="btn btn-warning">
+            Toggle YOLO
+        </button>
+
+        <script>
+            document.getElementById("toggleYolo").addEventListener("click", async () => {
+                let res = await fetch("/toggle_yolo", { method: "POST" });
+                let data = await res.json();
+
+                alert("YOLO: " + (data.yolo ? "ON" : "OFF"));
+            });
+        </script>
+        <div class="card p-4 mt-3">
+            <h5>Recorded Clip</h5>
+            <video id="recordedPreview" width="640" height="480" controls class="border"></video>
+        </div>
+    </div>
+
+    <script>
+        let stream = null;
+        let recorder = null;
+        let recordedChunks = [];
+
+        const videoPreview = document.getElementById('videoPreview');
+        const recordedPreview = document.getElementById('recordedPreview');
+        const startBtn = document.getElementById('startBtn');
+        const recordBtn = document.getElementById('recordBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const uploadBtn = document.getElementById('uploadBtn');
+
+        function toggleSidebar() {
+            let sidebar = document.getElementById('sidebar');
+            let main = document.querySelector('.main');
+            sidebar.classList.toggle('collapsed');
+            main.classList.toggle('collapsed');
+        }
+
+        startBtn.addEventListener('click', async () => {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                videoPreview.srcObject = stream;
+                recordBtn.disabled = false;
+            } catch (err) {
+                alert('Không thể mở camera: ' + err.message);
+            }
+        });
+
+        recordBtn.addEventListener('click', () => {
+            if (!stream) return;
+            recordedChunks = [];
+            recorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp8' });
+            recorder.ondataavailable = e => {
+                if (e.data.size > 0) recordedChunks.push(e.data);
+            };
+            recorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'video/webm' });
+                recordedPreview.src = URL.createObjectURL(blob);
+                uploadBtn.disabled = false;
+            };
+            recorder.start();
+            recordBtn.disabled = true;
+            stopBtn.disabled = false;
+        });
+
+        stopBtn.addEventListener('click', () => {
+            if (recorder && recorder.state !== 'inactive') {
+                recorder.stop();
+            }
+            recordBtn.disabled = false;
+            stopBtn.disabled = true;
+        });
+
+        uploadBtn.addEventListener('click', async () => {
+            if (recordedChunks.length === 0) return;
+            const blob = new Blob(recordedChunks, { type: 'video/webm' });
+            const formData = new FormData();
+            formData.append('camera_video', blob, `camera_${Date.now()}.webm`);
+
+            const response = await fetch('/upload_camera', {
+                method: 'POST',
+                body: formData,
+            });
+
+            if (response.ok) {
+                alert('Upload thành công');
+            } else {
+                alert('Upload thất bại');
+            }
+        });
+    </script>
+</body>
