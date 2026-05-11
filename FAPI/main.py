@@ -6,20 +6,28 @@ import cv2
 from tensorflow.keras.models import load_model
 from collections import deque
 import numpy as np
+from deep_sort_realtime.deepsort_tracker import DeepSort
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 from tensorflow.keras.models import Model
+from app.anomaly_detector import AnomalyDetector
+from app.performance import PerformanceMonitor
+from app.temporal_filter import TemporalFilter
+from app.behavior_fusion import BehaviorFusion
 base_model = VGG16(weights="imagenet")
 feature_extractor = Model(
     inputs=base_model.input,
     outputs=base_model.get_layer("fc2").output   # (4096,)
 )
-SEQ_LEN = 1
+
+from deep_sort_realtime.deepsort_tracker import DeepSort
+tracker = DeepSort(max_age=30)
+SEQ_LEN = 20
 THRESHOLD = 0.7
 
 PREDICT_EVERY = 10       # Chỉ dự đoán mỗi 10 frame
 JPEG_QUALITY = 65        # Nén JPEG mạnh hơn => stream nhanh hơn
 DISPLAY_SIZE = (480, 270)  # Giảm kích thước hiển thị
-SPEED_FACTOR = 0.1      # 0.5 = phát nhanh gấp đôi
+SPEED_FACTOR = 1      # 0.5 = phát nhanh gấp đôi
 app = Flask(__name__)
 model_vl = load_model(r"E:\data\violence_model.h5")
 
@@ -154,37 +162,140 @@ def get_chart_day():
 # ================== LIVE CAMERA STREAM ==================
 camera = cv2.VideoCapture(0)
 
+# def generate_frames():
+#     global camera
+    
+#     while True:
+#         success, frame = camera.read()
+        
+#         if not success:
+#             break
+
+#         frame = cv2.resize(frame, (640, 360))
+
+#         # Hiển thị chữ đơn giản
+#         cv2.putText(
+#             frame,
+#             "LIVE CAMERA",
+#             (20, 40),
+#             cv2.FONT_HERSHEY_SIMPLEX,
+#             1,
+#             (0, 255, 0),
+#             2
+#         )
+
+#         _, buffer = cv2.imencode(".jpg", frame)
+#         frame_bytes = buffer.tobytes()
+        
+#         yield (
+#             b"--frame\r\n"
+#             b"Content-Type: image/jpeg\r\n\r\n" +
+#             frame_bytes +
+#             b"\r\n"
+#         )
 def generate_frames():
-    global camera
+    global camera, fusion, temporal, anomaly, perf
+
+    frame_buffer = deque(maxlen=SEQ_LEN)
+    frame_count = 0
+    last_prob = 0.0
+    last_alert_time = 0
+
+    import time
 
     while True:
+        perf.start()
+
         success, frame = camera.read()
         if not success:
             break
 
-        frame = cv2.resize(frame, (640, 360))
+        frame_count += 1
+        frame = cv2.resize(frame, DISPLAY_SIZE)
 
-        # Hiển thị chữ đơn giản
-        cv2.putText(
-            frame,
-            "LIVE CAMERA",
-            (20, 40),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            1,
-            (0, 255, 0),
-            2
-        )
+        # ================= YOLO DETECTION =================
+        results = model(frame)[0]
+        detections = []
 
-        _, buffer = cv2.imencode(".jpg", frame)
-        frame_bytes = buffer.tobytes()
+        for box in results.boxes:
+            x1, y1, x2, y2 = map(int, box.xyxy[0])
+            conf = float(box.conf[0])
+            cls = int(box.cls[0])
 
-        yield (
-            b"--frame\r\n"
-            b"Content-Type: image/jpeg\r\n\r\n" +
-            frame_bytes +
-            b"\r\n"
-        )
+            detections.append([x1, y1, x2, y2, conf, cls])
 
+        # ================= DEEPSORT TRACKING =================
+        tracks = tracker.update(detections, frame)
+
+        frame_buffer.append(frame.copy())
+
+        if len(frame_buffer) == SEQ_LEN and frame_count % PREDICT_EVERY == 0:
+            try:
+                last_prob = predict_violence_sequence(frame_buffer)
+            except:
+                pass
+
+        prob = last_prob
+
+        # ================= PER TRACK PROCESS =================
+        for t in tracks:
+            x1, y1, x2, y2 = t["bbox"]
+            tid = t["id"]
+
+            bbox_area = (x2-x1) * (y2-y1)
+            centroid = ((x1+x2)//2, (y1+y2)//2)
+
+            # ===== FUSION =====
+            fused_score = fusion.update(tid, prob, bbox_area)
+
+            # ===== TEMPORAL FILTER =====
+            is_alert, smooth_score = temporal.update(tid, fused_score)
+
+            # ===== ANOMALY =====
+            anomaly_type = anomaly.update(tid, centroid)
+
+            # ================= DRAW =================
+            color = (0,255,0)
+
+            if is_alert:
+                color = (0,0,255)
+
+            cv2.rectangle(frame, (x1,y1), (x2,y2), color, 2)
+
+            cv2.putText(frame, f"ID:{tid}", (x1,y1-10),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+
+            cv2.putText(frame, anomaly_type, (x1,y2+20),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
+            # ================= ALERT SAVE =================
+            if is_alert and time.time() - last_alert_time > 10:
+                save_alert(0)
+                last_alert_time = time.time()
+
+        # ================= STATUS TEXT =================
+        cv2.putText(frame,
+                    f"FPS: {perf.fps():.2f}",
+                    (10,30),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,(255,255,255),2)
+
+        cv2.putText(frame,
+                    f"Latency: {perf.latency():.2f}ms",
+                    (10,60),
+                    cv2.FONT_HERSHEY_SIMPLEX,
+                    0.7,(255,255,255),2)
+
+        perf.end()
+
+        # ================= STREAM =================
+        _, buffer = cv2.imencode(".jpg", frame,
+                                 [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+
+        yield (b"--frame\r\n"
+               b"Content-Type: image/jpeg\r\n\r\n" +
+               buffer.tobytes() +
+               b"\r\n")
 # ================== ROUTES ==================
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -485,7 +596,48 @@ def generate_frames():
             frame_bytes +
             b"\r\n"
         )
+# for t in tracks:
+#     x1, y1, x2, y2 = t["bbox"]
+#     track_id = t["id"]
 
+#     # default color
+#     color = (0, 255, 0)
+
+#     # nếu violence
+#     if prob > THRESHOLD:
+#         color = (0, 0, 255)
+
+#     # BOX
+#     cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+
+#     # ID label
+#     cv2.putText(
+#         frame,
+#         f"ID {track_id}",
+#         (x1, y1 - 10),
+#         cv2.FONT_HERSHEY_SIMPLEX,
+#         0.6,
+#         color,
+#         2
+#     )
+
+#     # ALERT label
+#     if prob > THRESHOLD:
+#         cv2.putText(
+#             frame,
+#             "VIOLENCE DETECTED",
+#             (x1, y2 + 20),
+#             cv2.FONT_HERSHEY_SIMPLEX,
+#             0.6,
+#             (0, 0, 255),
+#             2
+#         )
+
+
+usion = BehaviorFusion()
+filter = TemporalFilter()
+anomaly = AnomalyDetector()
+perf = PerformanceMonitor()
 # ================== RUN ==================
 if __name__ == "__main__":
     app.run(debug=True)

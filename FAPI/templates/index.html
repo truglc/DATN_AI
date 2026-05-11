@@ -69,7 +69,8 @@
             <h4>🎥 Video đang phát (YOLO Detection)</h4>
 
             <img id="mainVideo" class="video-box" src="{{ url_for('video_feed', filename=latest_video[1]) }}"
-                style="width: 100%; border-radius: 10px;" alt="Video Stream">
+            
+            style="width: 100%; border-radius: 10px;" alt="Video Stream">
 
             <div class="mt-2 text-success">
                 ▶️ {{ latest_video[1] }}
@@ -165,94 +166,7 @@
             main.classList.toggle("collapsed");
         }
 
-        /* ===== FAKE KPI ===== */
-        let alertCount = 0;
-        let safeCount = 20;
 
-        function updateKPI() {
-            document.getElementById("alertToday").innerText = alertCount;
-        }
-
-        /* ===== FAKE HOURLY DATA ===== */
-        function fakeHourlyData() {
-            let labels = [];
-            let values = [];
-
-            for (let i = 0; i < 24; i++) {
-                labels.push(i + ":00");
-
-                let base = Math.floor(Math.random() * 3);
-
-                // giả lập giờ tối nhiều bạo lực hơn
-                if (i >= 20 || i <= 2) base += 2;
-
-                values.push(base);
-            }
-
-            return { labels, values };
-        }
-
-        /* ===== FAKE DAILY DATA ===== */
-        function fakeDailyData(days = 7) {
-            let labels = [];
-            let values = [];
-
-            for (let i = days - 1; i >= 0; i--) {
-                let d = new Date();
-                d.setDate(d.getDate() - i);
-
-                labels.push(d.toISOString().slice(5, 10));
-
-                let value = Math.floor(Math.random() * 4);
-
-                // cuối tuần tăng
-                if (d.getDay() === 0 || d.getDay() === 6) value += 2;
-
-                values.push(value);
-            }
-
-            return { labels, values };
-        }
-
-        /* ===== DRAW CHARTS ===== */
-        let hourlyChart, dailyChart, pieChart;
-
-        function initCharts() {
-            let hourly = fakeHourlyData();
-            let daily = fakeDailyData();
-
-            hourlyChart = new Chart(document.getElementById("chart"), {
-                type: "line",
-                data: {
-                    labels: hourly.labels,
-                    datasets: [{
-                        label: "Alerts theo giờ",
-                        data: hourly.values
-                    }]
-                }
-            });
-
-            dailyChart = new Chart(document.getElementById("dailyChart"), {
-                type: "bar",
-                data: {
-                    labels: daily.labels,
-                    datasets: [{
-                        label: "Alerts theo ngày",
-                        data: daily.values
-                    }]
-                }
-            });
-
-            pieChart = new Chart(document.getElementById("pieChart"), {
-                type: "pie",
-                data: {
-                    labels: ["Safe", "Violence"],
-                    datasets: [{
-                        data: [safeCount, alertCount]
-                    }]
-                }
-            });
-        }
 
         /* ===== REALTIME UPDATE ===== */
         function updateChartsRealtime() {
