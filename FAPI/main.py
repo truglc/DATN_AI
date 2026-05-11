@@ -1,42 +1,57 @@
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, Response
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, Response, jsonify
 import os
 import sqlite3
 from datetime import datetime
+import time
 import cv2
 from tensorflow.keras.models import load_model
 from collections import deque
 import numpy as np
-from deep_sort_realtime.deepsort_tracker import DeepSort
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 from tensorflow.keras.models import Model
+from ultralytics import YOLO
+from app.tracker import Tracker
 from app.anomaly_detector import AnomalyDetector
 from app.performance import PerformanceMonitor
 from app.temporal_filter import TemporalFilter
 from app.behavior_fusion import BehaviorFusion
+
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+MODEL_PATHS = [
+    os.environ.get("VIOLENCE_MODEL_PATH", ""),
+    os.path.join(BASE_DIR, "models", "violence_model.h5"),
+    os.path.join(BASE_DIR, "violence_model.h5"),
+    os.path.join(BASE_DIR, "..", "prueba.h5"),
+]
+
+app = Flask(__name__)
+app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
+app.config["DB_PATH"] = os.path.join(BASE_DIR, "database.db")
+app.config["YOLO_ENABLED"] = True
+app.config["SEQ_LEN"] = 20
+app.config["PREDICT_EVERY"] = 10
+app.config["THRESHOLD"] = 0.7
+app.config["JPEG_QUALITY"] = 65
+app.config["DISPLAY_SIZE"] = (480, 270)
+app.config["SPEED_FACTOR"] = 1.0
+
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+
+model_vl = None
+yolo_model = None
+camera_stream_stats = {
+    "fps": 0.0,
+    "latency_ms": 0.0,
+    "alert_count": 0,
+    "yolo_enabled": True,
+    "source": 0,
+}
+
 base_model = VGG16(weights="imagenet")
 feature_extractor = Model(
     inputs=base_model.input,
-    outputs=base_model.get_layer("fc2").output   # (4096,)
+    outputs=base_model.get_layer("fc2").output
 )
-
-from deep_sort_realtime.deepsort_tracker import DeepSort
-tracker = DeepSort(max_age=30)
-SEQ_LEN = 20
-THRESHOLD = 0.7
-
-PREDICT_EVERY = 10       # Chỉ dự đoán mỗi 10 frame
-JPEG_QUALITY = 65        # Nén JPEG mạnh hơn => stream nhanh hơn
-DISPLAY_SIZE = (480, 270)  # Giảm kích thước hiển thị
-SPEED_FACTOR = 1      # 0.5 = phát nhanh gấp đôi
-app = Flask(__name__)
-model_vl = load_model(r"E:\data\violence_model.h5")
-
-# ================== CONFIG ==================
-UPLOAD_FOLDER = "uploads"
-DB = "database.db"
-
-app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ================== DATABASE INIT ==================
 def init_db():
