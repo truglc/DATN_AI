@@ -1,57 +1,50 @@
-from flask import Flask, render_template, request, send_from_directory, redirect, url_for, Response, jsonify
+from flask import Flask, render_template, request, send_from_directory, redirect, url_for, Response
 import os
 import sqlite3
 from datetime import datetime
-import time
 import cv2
 from tensorflow.keras.models import load_model
 from collections import deque
 import numpy as np
+from deep_sort_realtime.deepsort_tracker import DeepSort
 from tensorflow.keras.applications.vgg16 import VGG16, preprocess_input
 from tensorflow.keras.models import Model
-from ultralytics import YOLO
-from app.tracker import Tracker
 from app.anomaly_detector import AnomalyDetector
 from app.performance import PerformanceMonitor
 from app.temporal_filter import TemporalFilter
 from app.behavior_fusion import BehaviorFusion
-
-BASE_DIR = os.path.abspath(os.path.dirname(__file__))
-MODEL_PATHS = [
-    os.environ.get("VIOLENCE_MODEL_PATH", ""),
-    os.path.join(BASE_DIR, "models", "violence_model.h5"),
-    os.path.join(BASE_DIR, "violence_model.h5"),
-    os.path.join(BASE_DIR, "..", "prueba.h5"),
-]
-
-app = Flask(__name__)
-app.config["UPLOAD_FOLDER"] = os.path.join(BASE_DIR, "uploads")
-app.config["DB_PATH"] = os.path.join(BASE_DIR, "database.db")
-app.config["YOLO_ENABLED"] = True
-app.config["SEQ_LEN"] = 20
-app.config["PREDICT_EVERY"] = 10
-app.config["THRESHOLD"] = 0.7
-app.config["JPEG_QUALITY"] = 65
-app.config["DISPLAY_SIZE"] = (480, 270)
-app.config["SPEED_FACTOR"] = 1.0
-
-os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
-
-model_vl = None
-yolo_model = None
-camera_stream_stats = {
-    "fps": 0.0,
-    "latency_ms": 0.0,
-    "alert_count": 0,
-    "yolo_enabled": True,
-    "source": 0,
-}
-
 base_model = VGG16(weights="imagenet")
 feature_extractor = Model(
     inputs=base_model.input,
-    outputs=base_model.get_layer("fc2").output
+    outputs=base_model.get_layer("fc2").output   # (4096,)
 )
+from app.metrics import MetricsTracker
+import time
+
+metrics = MetricsTracker()
+tracker = DeepSort(max_age=30)
+SEQ_LEN = 20
+THRESHOLD = 0.7
+from collections import deque
+
+smooth_buffer = deque(maxlen=5)
+
+def smooth(pred):
+    smooth_buffer.append(pred)
+    return sum(smooth_buffer) / len(smooth_buffer)
+PREDICT_EVERY = 10       # Chỉ dự đoán mỗi 10 frame
+JPEG_QUALITY = 65        # Nén JPEG mạnh hơn => stream nhanh hơn
+DISPLAY_SIZE = (480, 270)  # Giảm kích thước hiển thị
+SPEED_FACTOR = 1      # 0.5 = phát nhanh gấp đôi
+app = Flask(__name__)
+model_vl = load_model(r"E:\data\violence_model.h5")
+
+# ================== CONFIG ==================
+UPLOAD_FOLDER = "uploads"
+DB = "database.db"
+
+app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ================== DATABASE INIT ==================
 def init_db():
@@ -208,109 +201,109 @@ camera = cv2.VideoCapture(0)
 #             frame_bytes +
 #             b"\r\n"
 #         )
-def generate_frames():
-    global camera, fusion, temporal, anomaly, perf
+# def generate_frames():
+#     global camera, fusion, temporal, anomaly, perf
 
-    frame_buffer = deque(maxlen=SEQ_LEN)
-    frame_count = 0
-    last_prob = 0.0
-    last_alert_time = 0
+#     frame_buffer = deque(maxlen=SEQ_LEN)
+#     frame_count = 0
+#     last_prob = 0.0
+#     last_alert_time = 0
 
-    import time
+#     import time
 
-    while True:
-        perf.start()
+#     while True:
+#         perf.start()
 
-        success, frame = camera.read()
-        if not success:
-            break
+#         success, frame = camera.read()
+#         if not success:
+#             break
 
-        frame_count += 1
-        frame = cv2.resize(frame, DISPLAY_SIZE)
+#         frame_count += 1
+#         frame = cv2.resize(frame, DISPLAY_SIZE)
 
-        # ================= YOLO DETECTION =================
-        results = model(frame)[0]
-        detections = []
+#         # ================= YOLO DETECTION =================
+#         results = model(frame)[0]
+#         detections = []
 
-        for box in results.boxes:
-            x1, y1, x2, y2 = map(int, box.xyxy[0])
-            conf = float(box.conf[0])
-            cls = int(box.cls[0])
+#         for box in results.boxes:
+#             x1, y1, x2, y2 = map(int, box.xyxy[0])
+#             conf = float(box.conf[0])
+#             cls = int(box.cls[0])
 
-            detections.append([x1, y1, x2, y2, conf, cls])
+#             detections.append([x1, y1, x2, y2, conf, cls])
 
-        # ================= DEEPSORT TRACKING =================
-        tracks = tracker.update(detections, frame)
+#         # ================= DEEPSORT TRACKING =================
+#         tracks = tracker.update(detections, frame)
 
-        frame_buffer.append(frame.copy())
+#         frame_buffer.append(frame.copy())
 
-        if len(frame_buffer) == SEQ_LEN and frame_count % PREDICT_EVERY == 0:
-            try:
-                last_prob = predict_violence_sequence(frame_buffer)
-            except:
-                pass
+#         if len(frame_buffer) == SEQ_LEN and frame_count % PREDICT_EVERY == 0:
+#             try:
+#                 last_prob = predict_violence_sequence(frame_buffer)
+#             except:
+#                 pass
 
-        prob = last_prob
+#         prob = last_prob
 
-        # ================= PER TRACK PROCESS =================
-        for t in tracks:
-            x1, y1, x2, y2 = t["bbox"]
-            tid = t["id"]
+#         # ================= PER TRACK PROCESS =================
+#         for t in tracks:
+#             x1, y1, x2, y2 = t["bbox"]
+#             tid = t["id"]
 
-            bbox_area = (x2-x1) * (y2-y1)
-            centroid = ((x1+x2)//2, (y1+y2)//2)
+#             bbox_area = (x2-x1) * (y2-y1)
+#             centroid = ((x1+x2)//2, (y1+y2)//2)
 
-            # ===== FUSION =====
-            fused_score = fusion.update(tid, prob, bbox_area)
+#             # ===== FUSION =====
+#             fused_score = fusion.update(tid, prob, bbox_area)
 
-            # ===== TEMPORAL FILTER =====
-            is_alert, smooth_score = temporal.update(tid, fused_score)
+#             # ===== TEMPORAL FILTER =====
+#             is_alert, smooth_score = temporal.update(tid, fused_score)
 
-            # ===== ANOMALY =====
-            anomaly_type = anomaly.update(tid, centroid)
+#             # ===== ANOMALY =====
+#             anomaly_type = anomaly.update(tid, centroid)
 
-            # ================= DRAW =================
-            color = (0,255,0)
+#             # ================= DRAW =================
+#             color = (0,255,0)
 
-            if is_alert:
-                color = (0,0,255)
+#             if is_alert:
+#                 color = (0,0,255)
 
-            cv2.rectangle(frame, (x1,y1), (x2,y2), color, 2)
+#             cv2.rectangle(frame, (x1,y1), (x2,y2), color, 2)
 
-            cv2.putText(frame, f"ID:{tid}", (x1,y1-10),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+#             cv2.putText(frame, f"ID:{tid}", (x1,y1-10),
+#                         cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-            cv2.putText(frame, anomaly_type, (x1,y2+20),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+#             cv2.putText(frame, anomaly_type, (x1,y2+20),
+#                         cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
 
-            # ================= ALERT SAVE =================
-            if is_alert and time.time() - last_alert_time > 10:
-                save_alert(0)
-                last_alert_time = time.time()
+#             # ================= ALERT SAVE =================
+#             if is_alert and time.time() - last_alert_time > 10:
+#                 save_alert(0)
+#                 last_alert_time = time.time()
 
-        # ================= STATUS TEXT =================
-        cv2.putText(frame,
-                    f"FPS: {perf.fps():.2f}",
-                    (10,30),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,(255,255,255),2)
+#         # ================= STATUS TEXT =================
+#         cv2.putText(frame,
+#                     f"FPS: {perf.fps():.2f}",
+#                     (10,30),
+#                     cv2.FONT_HERSHEY_SIMPLEX,
+#                     0.7,(255,255,255),2)
 
-        cv2.putText(frame,
-                    f"Latency: {perf.latency():.2f}ms",
-                    (10,60),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    0.7,(255,255,255),2)
+#         cv2.putText(frame,
+#                     f"Latency: {perf.latency():.2f}ms",
+#                     (10,60),
+#                     cv2.FONT_HERSHEY_SIMPLEX,
+#                     0.7,(255,255,255),2)
 
-        perf.end()
+#         perf.end()
 
-        # ================= STREAM =================
-        _, buffer = cv2.imencode(".jpg", frame,
-                                 [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
+#         # ================= STREAM =================
+#         _, buffer = cv2.imencode(".jpg", frame,
+#                                  [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY])
 
-        yield (b"--frame\r\n"
-               b"Content-Type: image/jpeg\r\n\r\n" +
-               buffer.tobytes() +
-               b"\r\n")
+#         yield (b"--frame\r\n"
+#                b"Content-Type: image/jpeg\r\n\r\n" +
+#                buffer.tobytes() +
+#                b"\r\n")
 # ================== ROUTES ==================
 @app.route("/", methods=["GET", "POST"])
 def index():
@@ -352,7 +345,9 @@ def uploaded_file(filename):
         as_attachment=False
     )
 
-
+@app.route("/metrics")
+def metrics():
+    return metrics_tracker.report()
 @app.route("/video_feed/<filename>")
 def video_feed(filename):
     video_path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
@@ -430,7 +425,7 @@ def generate_video(video_path):
 
     cap = cv2.VideoCapture(video_path)
 
-    # Lấy FPS gốc của video
+    # FPS gốc
     fps = cap.get(cv2.CAP_PROP_FPS)
     if fps <= 0:
         fps = 25
@@ -448,30 +443,28 @@ def generate_video(video_path):
 
         frame_count += 1
 
-        # Resize để hiển thị
+        # ================== PREPROCESS ==================
         frame = cv2.resize(frame, DISPLAY_SIZE)
-
-        # Lưu frame vào buffer
         frame_buffer.append(frame.copy())
 
-        # Chỉ dự đoán mỗi 5 frame
+        # ================== MODEL PREDICTION ==================
         if len(frame_buffer) == SEQ_LEN and frame_count % PREDICT_EVERY == 0:
             try:
                 last_prob = predict_violence_sequence(frame_buffer)
             except Exception as e:
                 print("Prediction error:", e)
 
-        # Dùng kết quả gần nhất
         prob = last_prob
 
-        # Hiển thị kết quả
+        # ================== DEFAULT LABEL ==================
+        color = (0, 255, 0)
+        text = f"SAFE {prob:.2f}"
+
         if prob > THRESHOLD:
             color = (0, 0, 255)
             text = f"VIOLENCE {prob:.2f}"
-        else:
-            color = (0, 255, 0)
-            text = f"SAFE {prob:.2f}"
 
+        # ================== DRAW GLOBAL STATUS ==================
         cv2.putText(
             frame,
             text,
@@ -482,15 +475,45 @@ def generate_video(video_path):
             2
         )
 
-        # Encode JPEG
+        # =========================================================
+        # 🧠 HOOK CHO YOLO + DEEPSORT (BẠN GẮN VÀO ĐÂY)
+        # =========================================================
+
+        # Example structure (chưa bật logic thật):
+        tracks = []  # tracker.update_tracks(...)
+
+        for t in tracks:
+            if not t.is_confirmed():
+                continue
+
+            x1, y1, x2, y2 = map(int, t.to_ltrb())
+            track_id = t.track_id
+
+            box_color = (0, 255, 0)
+            if prob > THRESHOLD:
+                box_color = (0, 0, 255)
+
+            cv2.rectangle(frame, (x1, y1), (x2, y2), box_color, 2)
+
+            cv2.putText(
+                frame,
+                f"ID {track_id}",
+                (x1, y1 - 10),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.6,
+                box_color,
+                2
+            )
+
+        # ================== ENCODE FRAME ==================
         _, buffer = cv2.imencode(
             ".jpg",
             frame,
             [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY]
         )
+
         frame_bytes = buffer.tobytes()
 
-        # Stream frame
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" +
@@ -498,10 +521,11 @@ def generate_video(video_path):
             b"\r\n"
         )
 
-        # Giữ tốc độ gần bằng FPS gốc
+        # ================== FPS CONTROL ==================
         time.sleep(delay)
 
     cap.release()
+
 def predict_violence_sequence(frames):
     features = []
 
@@ -522,6 +546,8 @@ def predict_violence_sequence(frames):
     features = np.expand_dims(features, axis=0)
 
     pred = model_vl.predict(features, verbose=0)[0][0]
+    if gt_label is not None:
+        metrics_tracker.update(gt_label, int(pred > THRESHOLD))
     return float(pred)
 
 
@@ -531,53 +557,60 @@ camera = cv2.VideoCapture(0)
 camera = cv2.VideoCapture(0)
 
 def generate_frames():
-    global camera
-
-    # Buffer lưu 20 frame để đưa vào mô hình
-    frame_buffer = deque(maxlen=SEQ_LEN)
-
-    # Đếm frame để không dự đoán ở mọi frame
-    frame_count = 0
-
-    # Kết quả dự đoán gần nhất
-    last_prob = 0.0
-
-    # Tránh lưu alert liên tục
-    last_alert_time = 0
+    global camera, fps
 
     import time
+
+    # ================== INIT ==================
+    frame_buffer = deque(maxlen=SEQ_LEN)
+    last_prob = 0.0
+    last_alert_time = 0
+
+    frame_count = 0
+    start_time = time.time()
 
     while True:
         success, frame = camera.read()
         if not success:
             break
 
+        # ================== FPS ==================
         frame_count += 1
+        elapsed = time.time() - start_time
 
-        # Resize để hiển thị
+        if elapsed > 0:
+            fps = frame_count / elapsed
+
+        # ================== PREPROCESS ==================
         frame = cv2.resize(frame, DISPLAY_SIZE)
-
-        # Lưu frame vào buffer
         frame_buffer.append(frame.copy())
 
-        # Chỉ chạy mô hình mỗi 5 frame khi đã đủ 20 frame
+        # ================== PREDICT ==================
         if len(frame_buffer) == SEQ_LEN and frame_count % PREDICT_EVERY == 0:
             try:
-                last_prob = predict_violence_sequence(frame_buffer)
+                t1 = time.time()
+
+                pred = predict_violence_sequence(frame_buffer)
+                last_prob = smooth(pred)
+
+                t2 = time.time()
+                latency = (t2 - t1) * 1000  # ms
+
             except Exception as e:
                 print("Camera prediction error:", e)
+                latency = 0
 
         prob = last_prob
 
-        # Hiển thị kết quả
+        # ================== LABEL ==================
         if prob > THRESHOLD:
             color = (0, 0, 255)
             text = f"VIOLENCE {prob:.2f}"
 
-            # Chỉ lưu alert tối đa 1 lần mỗi 10 giây
+            # anti spam alert
             if time.time() - last_alert_time > 10:
                 try:
-                    save_alert(0)   # 0 = camera live, không gắn với video upload
+                    save_alert(0)
                     last_alert_time = time.time()
                 except Exception as e:
                     print("Save alert error:", e)
@@ -585,7 +618,7 @@ def generate_frames():
             color = (0, 255, 0)
             text = f"SAFE {prob:.2f}"
 
-        # Vẽ text lên frame
+        # ================== DRAW ==================
         cv2.putText(
             frame,
             text,
@@ -596,21 +629,42 @@ def generate_frames():
             2
         )
 
-        # Encode JPEG
+        # FPS
+        cv2.putText(
+            frame,
+            f"FPS: {fps:.2f}",
+            (20, 80),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.7,
+            (255, 255, 0),
+            2
+        )
+
+        # LATENCY (optional hiển thị)
+        cv2.putText(
+            frame,
+            f"Latency: {latency:.1f} ms",
+            (20, 110),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            (255, 255, 0),
+            2
+        )
+
+        # ================== STREAM ==================
         _, buffer = cv2.imencode(
             ".jpg",
             frame,
             [cv2.IMWRITE_JPEG_QUALITY, JPEG_QUALITY]
         )
-        frame_bytes = buffer.tobytes()
 
-        # Stream frame ra trình duyệt
         yield (
             b"--frame\r\n"
             b"Content-Type: image/jpeg\r\n\r\n" +
-            frame_bytes +
+            buffer.tobytes() +
             b"\r\n"
         )
+
 # for t in tracks:
 #     x1, y1, x2, y2 = t["bbox"]
 #     track_id = t["id"]
@@ -653,6 +707,7 @@ usion = BehaviorFusion()
 filter = TemporalFilter()
 anomaly = AnomalyDetector()
 perf = PerformanceMonitor()
+metrics = MetricsTracker()
 # ================== RUN ==================
 if __name__ == "__main__":
     app.run(debug=True)
