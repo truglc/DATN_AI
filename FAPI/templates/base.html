@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Violence Detection{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<nav class="nav">
+    <a href="{{ url_for('index') }}">Trang chủ</a>
+    <a href="{{ url_for('videos') }}">Video upload</a>
+    <a href="{{ url_for('camera_ai') }}">Browser Camera AI</a>
+    <a href="{{ url_for('alerts') }}">Cảnh báo</a>
+    <a href="{{ url_for('performance') }}">Hiệu năng</a>
+    <a href="{{ url_for('webcam') }}">Webcam server/local</a>
+</nav>
+
+<main class="container">
+    {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

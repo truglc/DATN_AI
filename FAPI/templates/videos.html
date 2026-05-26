@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Video upload{% endblock %}
+
+{% block content %}
+<div class="card">
+    <h1>Video upload</h1>
+    <table>
+        <tr><th>ID</th><th>Tên gốc</th><th>File</th><th>Nguồn</th><th>Time</th><th>Xem</th></tr>
+        {% for v in videos %}
+        <tr>
+            <td>{{ v[0] }}</td>
+            <td>{{ v[2] }}</td>
+            <td>{{ v[1] }}</td>
+            <td>{{ v[3] }}</td>
+            <td>{{ v[4] }}</td>
+            <td><a href="{{ url_for('video_stream', video_id=v[0]) }}">Detect</a></td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

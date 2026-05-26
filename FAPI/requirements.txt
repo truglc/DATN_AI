@@ -1,7 +1,6 @@
-fastapi
-uvicorn
+flask
 opencv-python
-ultralytics
-tensorflow
 numpy
-jinja2
+tensorflow
+ultralytics
+deep-sort-realtime

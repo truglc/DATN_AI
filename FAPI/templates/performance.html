@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Hiệu năng{% endblock %}
+
+{% block content %}
+<div class="card table-wrap">
+    <h1>Hiệu năng</h1>
+    <table>
+        <tr><th>ID</th><th>Video</th><th>Nguồn</th><th>Frame</th><th>FPS</th><th>Latency</th><th>Persons</th><th>Time</th></tr>
+        {% for p in rows %}
+        <tr>
+            <td>{{ p[0] }}</td>
+            <td>{{ p[1] }}</td>
+            <td>{{ p[2] }}</td>
+            <td>{{ p[3] }}</td>
+            <td>{{ "%.1f"|format(p[4]) }}</td>
+            <td>{{ "%.1f"|format(p[5]) }}ms</td>
+            <td>{{ p[6] }}</td>
+            <td>{{ p[7] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}

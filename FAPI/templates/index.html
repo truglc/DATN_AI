@@ -1,230 +1,44 @@
-<!DOCTYPE html>
-<html lang="vi">
+{% extends "base.html" %}
+{% block title %}Trang chủ - Violence Detection{% endblock %}
 
-<head>
-    <meta charset="UTF-8">
-    <title>AI Surveillance Dashboard</title>
+{% block content %}
+<div class="card">
+    <h1>Violence Detection - Upload + Browser Camera</h1>
+    <p>Project đã tách riêng <b>app.py</b>, <b>templates HTML</b>, <b>static CSS/JS</b>.</p>
+    <p><b>Model path:</b> {{ model_path }}</p>
+</div>
 
-    <!-- Bootstrap -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<div class="grid">
+    <div class="card"><div class="metric">{{ total_videos }}</div><p>Video upload</p></div>
+    <div class="card"><div class="metric">{{ total_alerts }}</div><p>Cảnh báo</p></div>
+    <div class="card"><div class="metric">{{ avg_fps }}</div><p>FPS trung bình</p></div>
+</div>
 
-    <!-- CSS -->
-    <link rel="stylesheet" href="/static/style.css">
+<div class="card">
+    <h2>Upload video</h2>
+    <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+        <input type="file" name="video" accept=".mp4,.avi,.mov,.mkv" required>
+        <button type="submit">Upload & Detect</button>
+    </form>
+</div>
 
-    <!-- Chart -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-</head>
+<div class="card">
+    <h2>Browser Camera</h2>
+    <p>Camera của trình duyệt gửi frame về Flask qua <code>/predict_frame</code>.</p>
+    <a class="button-link" href="{{ url_for('camera_ai') }}">Mở Browser Camera AI</a>
+</div>
 
-<body>
-
-    <!-- SIDEBAR -->
-    <div class="sidebar" id="sidebar">
-        <h4 class="logo">CAM</h4>
-
-        <a href="/"><span>📊</span><span class="text">Dashboard</span></a>
-        <a href="/videos"><span>🎥</span><span class="text">Video Sources</span></a>
-        <a href="/live"><span>📺</span><span class="text">Live Monitoring</span></a>
-        <a href="/alerts"><span>🚨</span><span class="text">Alerts</span></a>
-        <a href="/history"><span>🕒</span><span class="text">History</span></a>
-        <a href="/settings"><span>⚙️</span><span class="text">Settings</span></a>
-    </div>
-
-    <!-- MAIN -->
-    <div class="main">
-
-        <!-- TOPBAR -->
-        <div class="topbar">
-            <button onclick="toggleSidebar()" class="btn btn-dark">☰</button>
-            <h4>AI Surveillance</h4>
-        </div>
-
-        <h3>Live Monitoring</h3>
-
-        <!-- STATS -->
-        <div class="row mb-3">
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
-                    <h6>Cameras</h6>
-                    <h3>4</h3>
-                </div>
-            </div>
-
-            <div class="col-md-3">
-                <div class="card p-3 text-center">
-                    <h6>Alerts Today</h6>
-                    <h3 id="alertToday">0</h3>
-                </div>
-            </div>
-        </div>
-
-        <!-- UPLOAD -->
-        <form method="POST" enctype="multipart/form-data" class="mb-3">
-            <input type="file" name="videos" multiple class="form-control">
-            <button class="btn btn-primary mt-2">Upload</button>
-        </form>
-
-        <!-- DÙNG ĐOẠN NÀY THAY CHO PHẦN HIỂN THỊ VIDEO -->
-        {% if latest_video %}
-        <div class="card p-3 mb-4">
-            <h4>🎥 Video đang phát (YOLO Detection)</h4>
-
-            <img id="mainVideo" class="video-box" src="{{ url_for('video_feed', filename=latest_video[1]) }}"
-            
-            style="width: 100%; border-radius: 10px;" alt="Video Stream">
-
-            <div class="mt-2 text-success">
-                ▶️ {{ latest_video[1] }}
-            </div>
-        </div>
-
-        <script>
-            window.onload = function () {
-                const video = document.getElementById("mainVideo");
-
-                if (video) {
-                    // Buộc load lại nguồn video
-                    video.load();
-
-                    // Tự phát
-                    const promise = video.play();
-
-                    if (promise !== undefined) {
-                        promise.catch(error => {
-                            console.log("Autoplay bị chặn:", error);
-                        });
-                    }
-
-                    // Lặp lại khi kết thúc
-                    video.addEventListener("ended", function () {
-                        video.currentTime = 0;
-                        video.play();
-                    });
-
-                    // Debug lỗi
-                    video.addEventListener("error", function () {
-                        alert("Không thể phát video. Hãy chắc chắn file là MP4 chuẩn H.264.");
-                    });
-                }
-            };
-        </script>
-        {% endif %}
-        <div class="mb-3">
-            <a href="/camera" class="btn btn-success">Live Camera</a>
-        </div>
-
-        <!-- HISTORY + CHART -->
-        <div class="row mt-3">
-            <div class="col-md-6">
-                <div class="card p-3">
-                    <h5>History (Realtime)</h5>
-                    <div class="history" id="historyBox">
-                        {% for a in alerts %}
-                        <div>{{a[3]}} - {{a[2]}}</div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-
-            <div class="col-md-6">
-                <div class="card p-3">
-                    <h5>Alert Chart (Theo giờ)</h5>
-                    <canvas id="chart"></canvas>
-                </div>
-            </div>
-        </div>
-
-        <div class="row mt-3">
-
-            <!-- DAILY CHART -->
-            <div class="col-md-6">
-                <div class="card p-3">
-                    <h5>Thống kê theo ngày</h5>
-                    <canvas id="dailyChart"></canvas>
-                </div>
-            </div>
-
-            <!-- PIE CHART -->
-            <div class="col-md-6">
-                <div class="card p-3">
-                    <h5>Tỷ lệ an toàn / bạo lực</h5>
-                    <canvas id="pieChart"></canvas>
-                </div>
-            </div>
-
-        </div>
-
-    </div>
-
-    <!-- JS -->
-    <script src="/static/script.js"></script>
-    <script>
-        /* ===== SIDEBAR ===== */
-        function toggleSidebar() {
-            let sidebar = document.getElementById("sidebar");
-            let main = document.querySelector(".main");
-            sidebar.classList.toggle("collapsed");
-            main.classList.toggle("collapsed");
-        }
-
-
-
-        /* ===== REALTIME UPDATE ===== */
-        function updateChartsRealtime() {
-            setInterval(() => {
-                let time = new Date().toLocaleTimeString();
-
-                // update line chart
-                hourlyChart.data.labels.push(time);
-                hourlyChart.data.datasets[0].data.push(Math.floor(Math.random() * 5));
-                if (hourlyChart.data.labels.length > 10) {
-                    hourlyChart.data.labels.shift();
-                    hourlyChart.data.datasets[0].data.shift();
-                }
-                hourlyChart.update();
-
-                // update pie
-                pieChart.data.datasets[0].data = [safeCount, alertCount];
-                pieChart.update();
-
-            }, 4000);
-        }
-
-        /* ===== REALTIME HISTORY ===== */
-        function autoFakeAlert() {
-            let history = document.getElementById("historyBox");
-
-            setInterval(() => {
-                let isAlert = Math.random() > 0.5;
-
-                let time = new Date().toLocaleTimeString();
-
-                if (isAlert) {
-                    alertCount++;
-                    history.innerHTML += `<div style="color:red">⚠️ Bạo lực lúc ${time}</div>`;
-                } else {
-                    safeCount++;
-                    history.innerHTML += `<div style="color:lightgreen">✔ Bình thường ${time}</div>`;
-                }
-
-                history.scrollTop = history.scrollHeight;
-
-                updateKPI();
-
-            }, 3000);
-        }
-
-        /* ===== INIT ===== */
-        initCharts();
-        updateChartsRealtime();
-        autoFakeAlert();
-
-        /* ===== BUTTON ALERT ===== */
-        function triggerAlert(id) {
-            alertCount++;
-            updateKPI();
-        }
-    </script>
-
-</body>
-
-</html>
+<div class="card">
+    <h2>Cấu hình hiện tại</h2>
+    <ul>
+        <li>VGG16 input = 224x224</li>
+        <li>LSTM sequence = {{ seq_len }}</li>
+        <li>MAX_DISPLAY_WIDTH = {{ max_width }}</li>
+        <li>YOLO_EVERY_N_FRAMES = {{ yolo_every }}</li>
+        <li>FEATURE_EVERY_N_FRAMES upload = {{ feature_every }}</li>
+        <li>FEATURE_EVERY_N_FRAMES camera = {{ camera_feature_every }}</li>
+        <li>USE_DEEPSORT = {{ use_deepsort }}</li>
+        <li>JPEG_QUALITY stream = {{ jpeg_quality }}</li>
+    </ul>
+</div>
+{% endblock %}

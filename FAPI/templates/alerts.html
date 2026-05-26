@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Cảnh báo{% endblock %}
+
+{% block content %}
+<div class="card table-wrap">
+    <h1>Cảnh báo</h1>
+    <table>
+        <tr>
+            <th>ID</th><th>Video</th><th>Nguồn</th><th>Nhãn</th><th>Fusion</th><th>LSTM</th><th>Rule</th>
+            <th>Frame</th><th>Persons</th><th>FPS</th><th>Latency</th><th>Snapshot</th><th>Time</th>
+        </tr>
+        {% for a in alerts %}
+        <tr>
+            <td>{{ a[0] }}</td>
+            <td>{{ a[1] }}</td>
+            <td>{{ a[2] }}</td>
+            <td class="danger">{{ a[3] }}</td>
+            <td>{{ "%.2f"|format(a[4]) }}</td>
+            <td>{{ "%.2f"|format(a[5]) }}</td>
+            <td>{{ "%.2f"|format(a[6]) }}</td>
+            <td>{{ a[7] }}</td>
+            <td>{{ a[8] }}</td>
+            <td>{{ "%.1f"|format(a[9]) }}</td>
+            <td>{{ "%.1f"|format(a[10]) }}ms</td>
+            <td>{% if a[11] %}<a href="{{ url_for('snapshots', filename=a[11]) }}" target="_blank">Xem</a>{% endif %}</td>
+            <td>{{ a[12] }}</td>
+        </tr>
+        {% endfor %}
+    </table>
+</div>
+{% endblock %}
