@@ -1,23 +1,19 @@
 {% extends "base.html" %}
-{% block title %}Hiệu năng{% endblock %}
-
+{% block title %}Performance{% endblock %}
+{% block page_title %}Hiệu năng{% endblock %}
 {% block content %}
-<div class="card table-wrap">
-    <h1>Hiệu năng</h1>
-    <table>
-        <tr><th>ID</th><th>Video</th><th>Nguồn</th><th>Frame</th><th>FPS</th><th>Latency</th><th>Persons</th><th>Time</th></tr>
-        {% for p in rows %}
-        <tr>
-            <td>{{ p[0] }}</td>
-            <td>{{ p[1] }}</td>
-            <td>{{ p[2] }}</td>
-            <td>{{ p[3] }}</td>
-            <td>{{ "%.1f"|format(p[4]) }}</td>
-            <td>{{ "%.1f"|format(p[5]) }}ms</td>
-            <td>{{ p[6] }}</td>
-            <td>{{ p[7] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+<section class="panel">
+<div class="table-wrap">
+<table>
+<thead><tr><th>ID</th><th>Video</th><th>Source</th><th>Frame</th><th>FPS</th><th>Latency</th><th>Persons</th><th>Time</th></tr></thead>
+<tbody>
+{% for r in rows %}
+<tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td><td>{{ "%.1f"|format(r[4]) }}</td><td>{{ "%.1f"|format(r[5]) }} ms</td><td>{{ r[6] }}</td><td>{{ r[7] }}</td></tr>
+{% else %}
+<tr><td colspan="8" class="empty">Chưa có dữ liệu.</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
+</section>
 {% endblock %}

@@ -1,128 +1,23 @@
-const video = document.getElementById("video");
-const canvas = document.getElementById("canvas");
-const labelBox = document.getElementById("label");
-const scoresBox = document.getElementById("scores");
-const infoBox = document.getElementById("info");
-const seqBox = document.getElementById("seq");
-const statusBox = document.getElementById("status");
-
-let stream = null;
-let running = false;
-let sending = false;
-let timer = null;
-
-const CONFIG = window.CAMERA_CONFIG;
-const INTERVAL = 1000 / CONFIG.sendFps;
-
-async function startCamera() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                width: { ideal: CONFIG.canvasWidth },
-                height: { ideal: CONFIG.canvasHeight },
-                frameRate: { ideal: 30, max: 30 },
-                facingMode: "user"
-            },
-            audio: false
-        });
-
-        video.srcObject = stream;
-        running = true;
-        statusBox.innerText = "Camera đang chạy, gửi frame về Flask...";
-
-        if (timer) clearInterval(timer);
-        timer = setInterval(sendFrame, INTERVAL);
-    } catch (err) {
-        statusBox.innerText = "Không mở được camera: " + err;
-        console.error(err);
-    }
+let stream=null,timer=null;
+const video=document.getElementById("video"),canvas=document.getElementById("canvas"),ctx=canvas.getContext("2d");
+const cfg=window.CAMERA_CONFIG||{sendFps:10,canvasW:224,canvasH:224,jpegQuality:.45};
+function setStatus(on){camStatus.innerText=on?"LIVE":"OFF";camStatus.classList.toggle("off",!on);}
+function setResult(d){
+  const label=d.label||"UNKNOWN"; labelBox.innerText=label; labelBox.className="result neutral";
+  if(label==="FIGHT") labelBox.className="result fight";
+  else if(label==="FALL_DETECTED"){labelBox.className="result fall";labelBox.innerText="FALL DETECTED";}
+  else if(label==="RUNNING_ABNORMAL"){labelBox.className="result running";labelBox.innerText="RUNNING ABNORMAL";}
+  else if(label.includes("NO FIGHT")) labelBox.className="result nofight";
+  else if(label.includes("LOADING")) labelBox.className="result loading";
+  fusionScore.innerText=Number(d.fusion_score||0).toFixed(2); lstmScore.innerText=Number(d.lstm_score||0).toFixed(2); ruleScore.innerText=Number(d.rule_score||0).toFixed(2);
+  personCount.innerText=d.person_count||0; fallValue.innerText=d.fall_detected?"DETECTED":"OFF"; runningValue.innerText=d.running_abnormal?"DETECTED":"OFF";
+  fpsValue.innerText=Number(d.fps||0).toFixed(1); latencyValue.innerText=Number(d.latency_ms||0).toFixed(0)+" ms"; seqValue.innerText=`${d.sequence_len||0}/${d.required_sequence||20}`;
 }
-
-function stopCamera() {
-    running = false;
-
-    if (timer) {
-        clearInterval(timer);
-        timer = null;
-    }
-
-    if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        stream = null;
-    }
-
-    labelBox.innerText = "STOPPED";
-    labelBox.className = "result-label waiting";
-    statusBox.innerText = "Camera đã dừng.";
+async function sendFrame(){
+ if(!stream) return; ctx.drawImage(video,0,0,cfg.canvasW,cfg.canvasH);
+ const image=canvas.toDataURL("image/jpeg",cfg.jpegQuality);
+ try{const res=await fetch("/predict_frame",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({image})}); const data=await res.json(); if(!data.error)setResult(data);}catch(e){console.error(e);}
 }
-
-async function resetAI() {
-    await fetch("/reset_camera_ai", { method: "POST" });
-    labelBox.innerText = "RESET";
-    labelBox.className = "result-label waiting";
-    scoresBox.innerText = "fusion=0.00 | lstm=0.00 | rule=0.00";
-    infoBox.innerText = "persons=0 | latency=0ms";
-    seqBox.innerText = `sequence=0/${CONFIG.seqLen}`;
-    statusBox.innerText = "Đã reset bộ nhớ LSTM camera.";
-}
-
-async function sendFrame() {
-    if (!running || sending) return;
-    if (video.videoWidth === 0 || video.videoHeight === 0) return;
-
-    sending = true;
-
-    try {
-        canvas.width = CONFIG.canvasWidth;
-        canvas.height = CONFIG.canvasHeight;
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", CONFIG.jpegQuality));
-        const formData = new FormData();
-        formData.append("image", blob, "frame.jpg");
-
-        const res = await fetch("/predict_frame", {
-            method: "POST",
-            body: formData
-        });
-
-        const data = await res.json();
-
-        if (data.error) {
-            statusBox.innerText = "Server error: " + data.error;
-            sending = false;
-            return;
-        }
-
-        labelBox.innerText = data.label;
-        if (data.label === "FIGHT") labelBox.className = "result-label fight";
-        else if (data.label.startsWith("LOADING")) labelBox.className = "result-label loading";
-        else labelBox.className = "result-label nofight";
-
-        scoresBox.innerText =
-            "fusion=" + data.fusion_score.toFixed(2) +
-            " | lstm=" + data.lstm_score.toFixed(2) +
-            " | rule=" + data.rule_score.toFixed(2);
-
-        infoBox.innerText =
-            "persons=" + data.person_count +
-            " | interaction=" + data.interaction_score.toFixed(2) +
-            " | motion=" + data.motion_score.toFixed(2) +
-            " | FPS=" + data.fps.toFixed(1) +
-            " | latency=" + data.latency_ms.toFixed(1) + "ms" +
-            " | frame=" + data.frame_index;
-
-        seqBox.innerText =
-            "sequence=" + data.sequence_len + "/" + data.required_sequence +
-            " | feature_count=" + data.feature_count;
-
-        statusBox.innerText = "Đang xử lý realtime qua /predict_frame";
-    } catch (err) {
-        statusBox.innerText = "Lỗi gửi frame: " + err;
-        console.error(err);
-    }
-
-    sending = false;
-}
+btnStart.onclick=async()=>{stream=await navigator.mediaDevices.getUserMedia({video:{width:640,height:480},audio:false});video.srcObject=stream;setStatus(true);timer=setInterval(sendFrame,Math.max(80,Math.floor(1000/cfg.sendFps)));};
+btnStop.onclick=()=>{if(timer)clearInterval(timer);timer=null;if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;video.srcObject=null;setStatus(false);};
+btnReset.onclick=async()=>{await fetch("/reset_camera_ai",{method:"POST"});setResult({label:"READY",fusion_score:0,lstm_score:0,rule_score:0,person_count:0,fps:0,latency_ms:0,sequence_len:0,required_sequence:20,fall_detected:false,running_abnormal:false});};

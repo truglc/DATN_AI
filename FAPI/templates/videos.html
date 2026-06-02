@@ -1,21 +1,23 @@
 {% extends "base.html" %}
-{% block title %}Video upload{% endblock %}
-
+{% block title %}Video{% endblock %}
+{% block page_title %}Video upload{% endblock %}
 {% block content %}
-<div class="card">
-    <h1>Video upload</h1>
-    <table>
-        <tr><th>ID</th><th>Tên gốc</th><th>File</th><th>Nguồn</th><th>Time</th><th>Xem</th></tr>
-        {% for v in videos %}
-        <tr>
-            <td>{{ v[0] }}</td>
-            <td>{{ v[2] }}</td>
-            <td>{{ v[1] }}</td>
-            <td>{{ v[3] }}</td>
-            <td>{{ v[4] }}</td>
-            <td><a href="{{ url_for('video_stream', video_id=v[0]) }}">Detect</a></td>
-        </tr>
-        {% endfor %}
-    </table>
+<section class="panel">
+<div class="table-wrap">
+<table>
+<thead><tr><th>ID</th><th>Tên gốc</th><th>File</th><th>Nguồn</th><th>Thời gian</th><th>Stream</th><th>Output MP4</th></tr></thead>
+<tbody>
+{% for v in videos %}
+<tr>
+<td>{{ v[0] }}</td><td>{{ v[2] }}</td><td>{{ v[1] }}</td><td>{{ v[3] }}</td><td>{{ v[4] }}</td>
+<td><a class="mini-btn" href="{{ url_for('video_stream', video_id=v[0]) }}">Xem</a></td>
+<td>{% if v|length > 5 and v[5] %}<a class="mini-btn" href="{{ url_for('outputs', filename=v[5]) }}" target="_blank">Tải output</a>{% else %}-{% endif %}</td>
+</tr>
+{% else %}
+<tr><td colspan="7" class="empty">Chưa có video.</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
+</section>
 {% endblock %}

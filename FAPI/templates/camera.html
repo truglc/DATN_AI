@@ -1,60 +1,31 @@
 {% extends "base.html" %}
-{% block title %}Browser Camera AI{% endblock %}
-
+{% block title %}Camera{% endblock %}
+{% block page_title %}Browser Camera AI{% endblock %}
 {% block content %}
-<div class="card">
-    <h1>Browser Camera AI Realtime</h1>
-    <p>
-        Camera trình duyệt gửi frame {{ canvas_w }}x{{ canvas_h }} về Flask.
-        Server xử lý về input chuẩn: <b>224x224 + preprocess_input + VGG16 fc2 + LSTM sequence 20</b>.
-    </p>
+<section class="stream-layout">
+<div class="video-panel">
+    <div class="video-header"><h2>Camera Preview</h2><span id="camStatus" class="live off">OFF</span></div>
+    <div class="video-frame"><video id="video" autoplay playsinline muted></video><canvas id="canvas" width="{{ canvas_w }}" height="{{ canvas_h }}" hidden></canvas></div>
+    <button class="btn primary" id="btnStart">Bắt đầu camera</button>
+    <button class="btn secondary" id="btnStop">Dừng</button>
+    <button class="btn danger-btn" id="btnReset">Reset AI</button>
 </div>
-
-<div class="grid">
-    <div class="card">
-        <h2>Camera</h2>
-        <video id="video" autoplay playsinline muted></video>
-        <canvas id="canvas" style="display:none;"></canvas>
-        <div class="actions">
-            <button onclick="startCamera()">Start Camera</button>
-            <button onclick="stopCamera()">Stop</button>
-            <button onclick="resetAI()">Reset AI</button>
-        </div>
-        <p class="small" id="status">Ấn Start Camera để bắt đầu.</p>
-    </div>
-
-    <div class="card">
-        <h2>Kết quả AI</h2>
-        <div id="label" class="result-label waiting">WAITING...</div>
-        <p id="scores">fusion=0.00 | lstm=0.00 | rule=0.00</p>
-        <p id="info">persons=0 | latency=0ms</p>
-        <p id="seq">sequence=0/{{ seq_len }}</p>
-    </div>
-</div>
-
-<div class="card">
-    <h2>Thông số input camera</h2>
-    <ul>
-        <li>Browser camera gửi: {{ send_fps }} FPS</li>
-        <li>Browser canvas: {{ canvas_w }}x{{ canvas_h }}</li>
-        <li>VGG16 input thật: 224x224</li>
-        <li>LSTM sequence: {{ seq_len }} feature</li>
-        <li>YOLO mỗi {{ camera_yolo_every }} frame</li>
-        <li>Feature mỗi {{ feature_every }} frame</li>
-        <li>LSTM mỗi {{ lstm_every }} lần feature</li>
-    </ul>
-</div>
-{% endblock %}
-
-{% block scripts %}
+<aside class="panel">
+    <h2>Kết quả realtime</h2>
+    <div id="labelBox" class="result neutral">READY</div>
+    <div class="info-row"><span>Fusion</span><b id="fusionScore">0.00</b></div>
+    <div class="info-row"><span>LSTM</span><b id="lstmScore">0.00</b></div>
+    <div class="info-row"><span>Rule</span><b id="ruleScore">0.00</b></div>
+    <div class="info-row"><span>Persons</span><b id="personCount">0</b></div>
+    <div class="info-row"><span>Fall</span><b id="fallValue">OFF</b></div>
+    <div class="info-row"><span>Running</span><b id="runningValue">OFF</b></div>
+    <div class="info-row"><span>FPS</span><b id="fpsValue">0.0</b></div>
+    <div class="info-row"><span>Latency</span><b id="latencyValue">0 ms</b></div>
+    <div class="info-row"><span>Sequence</span><b id="seqValue">0/{{ seq_len }}</b></div>
+</aside>
+</section>
 <script>
-window.CAMERA_CONFIG = {
-    sendFps: {{ send_fps }},
-    canvasWidth: {{ canvas_w }},
-    canvasHeight: {{ canvas_h }},
-    jpegQuality: {{ camera_jpeg_quality }},
-    seqLen: {{ seq_len }}
-};
+window.CAMERA_CONFIG = {sendFps: {{ send_fps }}, canvasW: {{ canvas_w }}, canvasH: {{ canvas_h }}, jpegQuality: {{ camera_jpeg_quality }}};
 </script>
-<script src="{{ url_for('static', filename='js/camera.js') }}"></script>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/camera.js') }}"></script>{% endblock %}

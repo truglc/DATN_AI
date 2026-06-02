@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Prediction logs{% endblock %}
+{% block page_title %}Prediction logs{% endblock %}
+{% block page_subtitle %}Lưu mỗi N frame: label, score, FPS, latency{% endblock %}
+{% block content %}
+<section class="panel">
+<div class="table-wrap">
+<table>
+<thead><tr>
+<th>ID</th><th>Video</th><th>Source</th><th>Frame</th><th>Label</th><th>Fusion</th><th>LSTM</th><th>Rule</th><th>Interaction</th><th>Motion</th><th>Persons</th><th>FPS</th><th>Latency</th><th>Fall</th><th>Run</th><th>Time</th>
+</tr></thead>
+<tbody>
+{% for r in rows %}
+<tr>
+<td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td><td><span class="badge">{{ r[4] }}</span></td>
+<td>{{ "%.2f"|format(r[5]) }}</td><td>{{ "%.2f"|format(r[6]) }}</td><td>{{ "%.2f"|format(r[7]) }}</td><td>{{ "%.2f"|format(r[8]) }}</td><td>{{ "%.2f"|format(r[9]) }}</td>
+<td>{{ r[10] }}</td><td>{{ "%.1f"|format(r[11]) }}</td><td>{{ "%.1f"|format(r[12]) }} ms</td><td>{{ r[13] }}</td><td>{{ r[14] }}</td><td>{{ r[15] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="16" class="empty">Chưa có prediction log.</td></tr>
+{% endfor %}
+</tbody>
+</table>
+</div>
+</section>
+{% endblock %}

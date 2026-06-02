@@ -1,10 +1,17 @@
 {% extends "base.html" %}
-{% block title %}{{ title }}{% endblock %}
-
+{% block title %}Stream{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}{{ description }}{% endblock %}
 {% block content %}
-<div class="card">
-    <h1>{{ title }}</h1>
-    <p>{{ description }}</p>
-    <img class="stream" src="{{ stream_url }}" alt="Video stream">
+<section class="stream-layout">
+<div class="video-panel">
+    <div class="video-header"><h2>Live Detection Stream</h2><span class="live">LIVE</span></div>
+    <div class="video-frame"><img src="{{ stream_url }}" alt="stream"></div>
 </div>
+<aside class="panel">
+    <h2>Output labels</h2>
+    <p>FIGHT / NO FIGHT / FALL_DETECTED / RUNNING_ABNORMAL</p>
+    <p>Output MP4 sẽ lưu trong thư mục <b>outputs/</b> sau khi stream chạy hết video.</p>
+</aside>
+</section>
 {% endblock %}

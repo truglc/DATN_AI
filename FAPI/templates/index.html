@@ -1,44 +1,56 @@
 {% extends "base.html" %}
-{% block title %}Trang chủ - Violence Detection{% endblock %}
-
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard tổng quan{% endblock %}
 {% block content %}
-<div class="card">
-    <h1>Violence Detection - Upload + Browser Camera</h1>
-    <p>Project đã tách riêng <b>app.py</b>, <b>templates HTML</b>, <b>static CSS/JS</b>.</p>
-    <p><b>Model path:</b> {{ model_path }}</p>
-</div>
+<section class="hero">
+    <div>
+        <span class="tag">AI Video Surveillance</span>
+        <h2>Phát hiện bạo lực, té ngã, chạy bất thường</h2>
+        <p>Mặc định chạy CNN/VGG16 + LSTM. Bật YOLO để thêm Fall Detection. Bật DeepSORT để thêm Running Abnormal. Rule Fusion giúp kết hợp LSTM + motion + IoU/distance interaction.</p>
+        <a class="btn primary" href="#upload-section">Upload video</a>
+        <a class="btn secondary" href="{{ url_for('camera_ai') }}">Mở Camera</a>
+    </div>
+    <div class="mode-card">
+        <h3>Pipeline hiện tại</h3>
+        <div id="currentMode" class="mode-box">Đang tải...</div>
+        <p>YOLO OFF + DeepSORT OFF → CNN/VGG16 + LSTM</p>
+    </div>
+</section>
 
-<div class="grid">
-    <div class="card"><div class="metric">{{ total_videos }}</div><p>Video upload</p></div>
-    <div class="card"><div class="metric">{{ total_alerts }}</div><p>Cảnh báo</p></div>
-    <div class="card"><div class="metric">{{ avg_fps }}</div><p>FPS trung bình</p></div>
-</div>
+<section class="stats">
+    <div class="card"><p>Video upload</p><h3>{{ total_videos }}</h3></div>
+    <div class="card danger"><p>Cảnh báo</p><h3>{{ total_alerts }}</h3></div>
+    <div class="card success"><p>FPS trung bình</p><h3>{{ avg_fps }}</h3></div>
+</section>
 
-<div class="card">
-    <h2>Upload video</h2>
-    <form method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
-        <input type="file" name="video" accept=".mp4,.avi,.mov,.mkv" required>
-        <button type="submit">Upload & Detect</button>
-    </form>
-</div>
+<section class="grid">
+    <div class="panel">
+        <h2>Bật / tắt model</h2>
+        <label class="switch"><input type="checkbox" id="swYolo" {% if model_switches.yolo %}checked{% endif %}> <b>YOLO</b><span>bbox + fall detection</span></label>
+        <label class="switch"><input type="checkbox" id="swDeepSort" {% if model_switches.deepsort %}checked{% endif %}> <b>DeepSORT</b><span>tracking + running abnormal</span></label>
+        <label class="switch"><input type="checkbox" id="swRule" {% if model_switches.rule_fusion %}checked{% endif %}> <b>Rule Fusion</b><span>LSTM + motion + IoU/distance</span></label>
+        <p class="hint">YOLO Available: {{ yolo_available }} · DeepSORT Available: {{ deepsort_available }}</p>
+    </div>
 
-<div class="card">
-    <h2>Browser Camera</h2>
-    <p>Camera của trình duyệt gửi frame về Flask qua <code>/predict_frame</code>.</p>
-    <a class="button-link" href="{{ url_for('camera_ai') }}">Mở Browser Camera AI</a>
-</div>
+    <div class="panel" id="upload-section">
+        <h2>Upload video</h2>
+        <form class="upload" method="POST" action="{{ url_for('upload') }}" enctype="multipart/form-data">
+            <input type="file" name="video" accept=".mp4,.avi,.mov,.mkv" required>
+            <button class="btn primary" type="submit">Upload & Detect</button>
+        </form>
+    </div>
+</section>
 
-<div class="card">
-    <h2>Cấu hình hiện tại</h2>
-    <ul>
-        <li>VGG16 input = 224x224</li>
-        <li>LSTM sequence = {{ seq_len }}</li>
-        <li>MAX_DISPLAY_WIDTH = {{ max_width }}</li>
-        <li>YOLO_EVERY_N_FRAMES = {{ yolo_every }}</li>
-        <li>FEATURE_EVERY_N_FRAMES upload = {{ feature_every }}</li>
-        <li>FEATURE_EVERY_N_FRAMES camera = {{ camera_feature_every }}</li>
-        <li>USE_DEEPSORT = {{ use_deepsort }}</li>
-        <li>JPEG_QUALITY stream = {{ jpeg_quality }}</li>
-    </ul>
-</div>
+<section class="panel">
+    <h2>Cấu hình nhanh</h2>
+    <div class="config-grid">
+        <div><span>Model</span><b>{{ model_path }}</b></div>
+        <div><span>SEQ_LEN</span><b>{{ seq_len }}</b></div>
+        <div><span>Upload FPS</span><b>{{ target_upload_play_fps }}</b></div>
+        <div><span>YOLO every</span><b>{{ yolo_every }}</b></div>
+        <div><span>Feature every</span><b>{{ feature_every }}</b></div>
+        <div><span>JPEG</span><b>{{ jpeg_quality }}</b></div>
+    </div>
+</section>
 {% endblock %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/model_switch.js') }}"></script>{% endblock %}

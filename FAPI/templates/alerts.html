@@ -1,31 +1,30 @@
 {% extends "base.html" %}
-{% block title %}Cảnh báo{% endblock %}
-
+{% block title %}Alerts{% endblock %}
+{% block page_title %}Lịch sử cảnh báo{% endblock %}
 {% block content %}
-<div class="card table-wrap">
-    <h1>Cảnh báo</h1>
-    <table>
-        <tr>
-            <th>ID</th><th>Video</th><th>Nguồn</th><th>Nhãn</th><th>Fusion</th><th>LSTM</th><th>Rule</th>
-            <th>Frame</th><th>Persons</th><th>FPS</th><th>Latency</th><th>Snapshot</th><th>Time</th>
-        </tr>
-        {% for a in alerts %}
-        <tr>
-            <td>{{ a[0] }}</td>
-            <td>{{ a[1] }}</td>
-            <td>{{ a[2] }}</td>
-            <td class="danger">{{ a[3] }}</td>
-            <td>{{ "%.2f"|format(a[4]) }}</td>
-            <td>{{ "%.2f"|format(a[5]) }}</td>
-            <td>{{ "%.2f"|format(a[6]) }}</td>
-            <td>{{ a[7] }}</td>
-            <td>{{ a[8] }}</td>
-            <td>{{ "%.1f"|format(a[9]) }}</td>
-            <td>{{ "%.1f"|format(a[10]) }}ms</td>
-            <td>{% if a[11] %}<a href="{{ url_for('snapshots', filename=a[11]) }}" target="_blank">Xem</a>{% endif %}</td>
-            <td>{{ a[12] }}</td>
-        </tr>
-        {% endfor %}
-    </table>
+<section class="panel">
+<div class="table-wrap">
+<table>
+<thead><tr><th>ID</th><th>Video</th><th>Source</th><th>Label</th><th>Conf</th><th>LSTM</th><th>Rule</th><th>Frame</th><th>Persons</th><th>FPS</th><th>Latency</th><th>Snapshot</th><th>Time</th></tr></thead>
+<tbody>
+{% for a in alerts %}
+<tr>
+<td>{{ a[0] }}</td><td>{{ a[1] }}</td><td>{{ a[2] }}</td>
+<td>
+{% if a[3] == "FIGHT" %}<span class="danger-label">Bạo lực</span>
+{% elif a[3] == "FALL_DETECTED" %}<span class="fall-label">Té ngã</span>
+{% elif a[3] == "RUNNING_ABNORMAL" %}<span class="run-label">Chạy bất thường</span>
+{% else %}<span class="badge">{{ a[3] }}</span>{% endif %}
+</td>
+<td>{{ "%.2f"|format(a[4]) }}</td><td>{{ "%.2f"|format(a[5]) }}</td><td>{{ "%.2f"|format(a[6]) }}</td><td>{{ a[7] }}</td><td>{{ a[8] }}</td><td>{{ "%.1f"|format(a[9]) }}</td><td>{{ "%.1f"|format(a[10]) }} ms</td>
+<td>{% if a[11] %}<a class="mini-btn" href="{{ url_for('snapshots', filename=a[11]) }}" target="_blank">Ảnh</a>{% else %}-{% endif %}</td>
+<td>{{ a[12] }}</td>
+</tr>
+{% else %}
+<tr><td colspan="13" class="empty">Chưa có cảnh báo.</td></tr>
+{% endfor %}
+</tbody>
+</table>
 </div>
+</section>
 {% endblock %}
