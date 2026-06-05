@@ -1,17 +1,22 @@
 {% extends "base.html" %}
-{% block title %}Stream{% endblock %}
+{% block title %}{{ title }}{% endblock %}
 {% block page_title %}{{ title }}{% endblock %}
 {% block page_subtitle %}{{ description }}{% endblock %}
+
 {% block content %}
 <section class="stream-layout">
-<div class="video-panel">
-    <div class="video-header"><h2>Live Detection Stream</h2><span class="live">LIVE</span></div>
-    <div class="video-frame"><img src="{{ stream_url }}" alt="stream"></div>
-</div>
-<aside class="panel">
-    <h2>Output labels</h2>
-    <p>FIGHT / NO FIGHT / FALL_DETECTED / RUNNING_ABNORMAL</p>
-    <p>Output MP4 sẽ lưu trong thư mục <b>outputs/</b> sau khi stream chạy hết video.</p>
-</aside>
+    <div class="card video-card">
+        <img class="stream-img" src="{{ stream_url }}" alt="Video stream">
+    </div>
+    <div class="card side-panel">
+        <h3>Thông tin luồng</h3>
+        <p class="muted">Kết quả được vẽ trực tiếp lên frame: label, fusion, lstm, rule, FPS.</p>
+        <div class="info-list">
+            <div><span>Trạng thái</span><b class="text-success">Đang stream</b></div>
+            <div><span>Kiểu stream</span><b>MJPEG</b></div>
+            <div><span>Overlay</span><b>Nhỏ, trong suốt</b></div>
+        </div>
+        <a class="btn ghost full" href="{{ url_for('videos') }}">Quay lại danh sách video</a>
+    </div>
 </section>
 {% endblock %}

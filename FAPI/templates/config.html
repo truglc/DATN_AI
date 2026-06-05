@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Cấu hình{% endblock %}
+{% block content %}
+<div class="card">
+    <h1>Cấu hình realtime</h1>
+    <p class="muted">Bật/tắt YOLO và DeepSORT tại đây. Khi tắt YOLO, hệ thống chỉ chạy CNN+LSTM + rule motion cơ bản.</p>
+
+    <form method="POST">
+        <h2>Module AI</h2>
+        <div class="checkline">
+            <input type="checkbox" name="USE_YOLO" {% if values.USE_YOLO %}checked{% endif %}>
+            <label><b>USE_YOLO</b> - Bật YOLO để detect người, vẽ bbox, tính distance/IoU/fall/running</label>
+        </div>
+
+        <div class="checkline">
+            <input type="checkbox" name="USE_DEEPSORT" {% if values.USE_DEEPSORT %}checked{% endif %}>
+            <label><b>USE_DEEPSORT</b> - Bật DeepSORT để tracking ID người qua nhiều frame</label>
+        </div>
+
+        <div class="checkline">
+            <input type="checkbox" name="CAMERA_USE_YOLO" {% if values.CAMERA_USE_YOLO %}checked{% endif %}>
+            <label><b>CAMERA_USE_YOLO</b> - Bật YOLO cho browser camera. Tắt để camera nhanh hơn</label>
+        </div>
+
+        <div class="checkline">
+            <input type="checkbox" name="SAVE_OUTPUT_VIDEO" {% if values.SAVE_OUTPUT_VIDEO %}checked{% endif %}>
+            <label><b>SAVE_OUTPUT_VIDEO</b> - Lưu video output đã vẽ overlay</label>
+        </div>
+
+        <h2>Tham số xử lý</h2>
+        <div class="form-grid">
+            {% for key,val in values.items() %}
+                {% if key not in ['SAVE_OUTPUT_VIDEO','USE_YOLO','USE_DEEPSORT','CAMERA_USE_YOLO'] %}
+                <div class="form-item">
+                    <label>{{ key }}</label>
+                    <input name="{{ key }}" value="{{ val }}">
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+
+        <br>
+        <button type="submit">Lưu cấu hình</button>
+    </form>
+</div>
+{% endblock %}

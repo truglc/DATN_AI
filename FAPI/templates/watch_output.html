@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+{% block page_subtitle %}Xem lại video đã nhận diện, không chạy AI lại{% endblock %}
+
+{% block content %}
+<section class="stream-layout">
+    <div class="card video-card">
+        <!-- Dùng MJPEG playback để tránh lỗi HTML5 không phát được mp4 do OpenCV ghi codec mp4v -->
+        <img class="stream-img" src="{{ stream_url }}" alt="Output playback">
+    </div>
+
+    <div class="card side-panel">
+        <h3>Video output</h3>
+        <p class="muted">
+            Đây là video đã xử lý và đã vẽ nhãn. Trang này chỉ đọc lại file output,
+            <b>không chạy AI lại</b>.
+        </p>
+
+        <div class="info-list">
+            <div><span>Chế độ</span><b class="text-success">Xem lại MJPEG</b></div>
+            <div><span>AI</span><b>Không chạy lại</b></div>
+            <div><span>File</span><b>{{ output_filename }}</b></div>
+        </div>
+
+        <a class="btn primary full" href="{{ download_url }}" target="_blank">Mở / tải file gốc</a>
+        <a class="btn ghost full" href="{{ url_for('videos') }}">Quay lại danh sách video</a>
+    </div>
+</section>
+{% endblock %}

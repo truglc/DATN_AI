@@ -5,31 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{% block title %}Violence Detection{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
 </head>
 <body>
-<div class="layout">
+<div class="app-shell">
     <aside class="sidebar">
-        <div class="brand"><div class="logo">AI</div><div><h2>Violence AI</h2><p>Graduation Project</p></div></div>
-        <nav>
-            <a href="{{ url_for('index') }}">Tổng quan</a>
-            <a href="{{ url_for('videos') }}">Video upload</a>
-            <a href="{{ url_for('camera_ai') }}">Browser Camera</a>
-            <a href="{{ url_for('webcam') }}">Server Webcam</a>
-            <a href="{{ url_for('alerts') }}">Cảnh báo</a>
-            <a href="{{ url_for('prediction_logs') }}">Prediction logs</a>
-            <a href="{{ url_for('performance') }}">Hiệu năng</a>
-            <a href="{{ url_for('settings') }}">Cấu hình</a>
+        <div class="brand">
+            <div class="brand-icon">AI</div>
+            <div>
+                <h2>Violence AI</h2>
+                <p>CNN + LSTM Monitor</p>
+            </div>
+        </div>
+
+        <nav class="menu">
+            <a href="{{ url_for('index') }}" class="nav-link">🏠 Trang chủ</a>
+            <a href="{{ url_for('videos') }}" class="nav-link">🎞️ Video upload</a>
+            <a href="{{ url_for('camera_ai') }}" class="nav-link">📷 Browser Camera</a>
+            <a href="{{ url_for('webcam') }}" class="nav-link">🖥️ Webcam server</a>
+            <a href="{{ url_for('alerts') }}" class="nav-link">🚨 Cảnh báo</a>
+            <a href="{{ url_for('performance') }}" class="nav-link">📊 Hiệu năng</a>
+            <a href="{{ url_for('prediction_logs') }}" class="nav-link">🧾 Prediction logs</a>
+            <a href="{{ url_for('config') }}" class="nav-link">⚙️ Cấu hình</a>
         </nav>
-        <div class="side-note">CNN/VGG16 + LSTM<br>YOLO + DeepSORT optional</div>
+
+        <div class="sidebar-note">
+            <span class="dot live"></span>
+            Flask realtime stream
+        </div>
     </aside>
+
     <main class="main">
         <header class="topbar">
-            <div><h1>{% block page_title %}Violence Detection{% endblock %}</h1><p>{% block page_subtitle %}Hệ thống phát hiện bạo lực và bất thường{% endblock %}</p></div>
-            <div class="online">● Online</div>
+            <div>
+                <h1>{% block page_title %}Dashboard{% endblock %}</h1>
+                <p>{% block page_subtitle %}Theo dõi nhận diện bạo lực từ video và camera{% endblock %}</p>
+            </div>
+            <div class="top-actions">
+                <a class="btn ghost" href="{{ url_for('camera_ai') }}">Mở camera</a>
+                <a class="btn primary" href="{{ url_for('index') }}#upload-box">Upload video</a>
+            </div>
         </header>
+
         {% block content %}{% endblock %}
     </main>
 </div>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

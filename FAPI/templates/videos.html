@@ -1,23 +1,64 @@
 {% extends "base.html" %}
-{% block title %}Video{% endblock %}
+{% block title %}Video upload{% endblock %}
 {% block page_title %}Video upload{% endblock %}
+{% block page_subtitle %}Danh sách video đã tải lên. Có thể chạy nhận diện hoặc xem lại video output đã xử lý{% endblock %}
+
 {% block content %}
-<section class="panel">
-<div class="table-wrap">
-<table>
-<thead><tr><th>ID</th><th>Tên gốc</th><th>File</th><th>Nguồn</th><th>Thời gian</th><th>Stream</th><th>Output MP4</th></tr></thead>
-<tbody>
-{% for v in videos %}
-<tr>
-<td>{{ v[0] }}</td><td>{{ v[2] }}</td><td>{{ v[1] }}</td><td>{{ v[3] }}</td><td>{{ v[4] }}</td>
-<td><a class="mini-btn" href="{{ url_for('video_stream', video_id=v[0]) }}">Xem</a></td>
-<td>{% if v|length > 5 and v[5] %}<a class="mini-btn" href="{{ url_for('outputs', filename=v[5]) }}" target="_blank">Tải output</a>{% else %}-{% endif %}</td>
-</tr>
-{% else %}
-<tr><td colspan="7" class="empty">Chưa có video.</td></tr>
-{% endfor %}
-</tbody>
-</table>
-</div>
+<section class="card">
+    <div class="section-head">
+        <div>
+            <h3>Danh sách video</h3>
+            <p class="muted">
+                <b>Chạy nhận diện</b> sẽ xử lý AI và tạo video output.
+                <b>Xem kết quả</b> chỉ mở lại video đã nhận diện, không chạy AI lại.
+            </p>
+        </div>
+        <a class="btn primary" href="{{ url_for('index') }}#upload-box">Upload thêm</a>
+    </div>
+
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Tên file gốc</th>
+                    <th>Tên lưu</th>
+                    <th>Nguồn</th>
+                    <th>Thời gian</th>
+                    <th>Output</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for v in videos %}
+                <tr>
+                    <td>{{ v[0] }}</td>
+                    <td>{{ v[2] }}</td>
+                    <td><code>{{ v[1] }}</code></td>
+                    <td><span class="pill">{{ v[3] }}</span></td>
+                    <td>{{ v[4] }}</td>
+                    <td>
+                        {% if v[5] %}
+                            <span class="pill success">Đã có output</span><br>
+                            <code>{{ v[5] }}</code>
+                        {% else %}
+                            <span class="muted">Chưa có output</span>
+                        {% endif %}
+                    </td>
+                    <td class="action-cell">
+                        <a class="btn small primary" href="{{ url_for('video_stream', video_id=v[0]) }}">Chạy nhận diện</a>
+                        {% if v[5] %}
+                            <a class="btn small success" href="{{ url_for('watch_output', video_id=v[0]) }}">Xem kết quả</a>
+                        {% else %}
+                            <span class="muted small-text">Chưa xem được</span>
+                        {% endif %}
+                    </td>
+                </tr>
+            {% else %}
+                <tr><td colspan="7" class="empty">Chưa có video nào.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </section>
 {% endblock %}

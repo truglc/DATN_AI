@@ -1,27 +1,31 @@
-# Checklist Kết quả Kiểm tra Source
+# Checklist — Kết quả kiểm tra source
 
-## Đã triển khai / đã có
+Tổng quan: danh sách kiểm tra các tính năng chính và trạng thái hiện tại của repository.
+
+## ✅ Đã triển khai / Đã có
 - [x] Sử dụng YOLO để phát hiện người trong video
-- [x] Sử dụng model Keras (LSTM) để dự đoán bạo lực từ chuỗi frame
-- [x] Có pipeline xử lý upload video và trả về kết quả dự đoán
-- [x] Có module demo web upload video và lưu trữ kết quả (Flask)
-- [x] Có mã huấn luyện mô hình CNN + LSTM trong `violence_detection.py`
-- [x] Có module DeepSORT tracking thật sự trong `FAPI/app/tracker.py`
-- [x] Có logic rule-based kết hợp tương tác người và dự đoán LSTM trong `FAPI/app/behavior_fusion.py`
-- [x] Có cơ chế temporal threshold / smoothing để giảm false positive trong `FAPI/app/temporal_filter.py`
-- [x] Có phát hiện hành vi bất thường ngoài bạo lực (té ngã, chạy bất thường, tĩnh) trong `FAPI/app/anomaly_detector.py`
-- [x] Có module đo hiệu năng FPS / latency trong `FAPI/app/performance.py`
+- [x] Model Keras (LSTM) dự đoán bạo lực từ chuỗi frame
+- [x] Pipeline upload video và trả về kết quả dự đoán
+- [x] Demo web upload video và lưu trữ kết quả (Flask)
+- [x] Mã huấn luyện CNN + LSTM trong `violence_detection.py`
+- [x] DeepSORT tracking trong `FAPI/app/tracker.py`
+- [x] Logic rule-based kết hợp tương tác người và dự đoán LSTM in `FAPI/app/behavior_fusion.py`
+- [x] Temporal threshold / smoothing giảm false positive (`FAPI/app/temporal_filter.py`)
+- [x] Phát hiện hành vi bất thường (té ngã, chạy, tĩnh) trong `FAPI/app/anomaly_detector.py`
+- [x] Module đo hiệu năng: FPS / latency (`FAPI/app/performance.py`)
 
-## Đã hoàn thiện / đang chạy trên Colab
-- [x] Pipeline YOLO + DeepSORT + tracking đã hoàn thiện và đang chạy trên Colab/GPU
-- [x] Giao diện bounding box / tracking / cảnh báo realtime đã hoàn thiện, không còn tạm giữ do CPU quá tải
-- [x] Toàn bộ logic đã được triển khai và hoạt động trên môi trường Colab
+## 🚀 Đã hoàn thiện / Chạy trên Colab
+- [x] Pipeline YOLO + DeepSORT + tracking: hoàn thiện, chạy trên Colab/GPU
+- [x] Giao diện bounding box / tracking / cảnh báo realtime: hoàn thiện
+- [x] Toàn bộ logic được triển khai và hoạt động trên môi trường Colab
 
-## Đã hoàn thiện / đã kiểm chứng
-- [x] Tích hợp đánh giá precision / recall / F1 đầy đủ (`FAPI/app/metrics.py` đã hoàn chỉnh và nối vào pipeline)
-- [x] Đo số liệu hiệu năng thực tế: FPS và latency đã ghi nhận bằng kết quả chạy thật
-- [x] Kiểm tra chạy video trực tiếp từ camera / nhiều nguồn đầu vào bằng pipeline hoàn chỉnh
+## 📊 Đã kiểm chứng
+- [x] Đánh giá precision / recall / F1 đầy đủ (`FAPI/app/metrics.py`)
+- [x] Đo và ghi nhận FPS / latency thực tế
+- [x] Kiểm thử chạy video trực tiếp từ camera và nhiều nguồn đầu vào
 
-## Ghi chú
-- Các module và logic chính đã có, và pipeline đã chạy tốt trên Colab/GPU.
-- Hiện tại không còn tạm giữ do CPU; Colab GPU đã giúp chạy full pipeline YOLO + DeepSORT + temporal filter.
+
+
+---
+Last updated: cập nhật nội dung để dễ đọc hơn.
+

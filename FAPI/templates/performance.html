@@ -1,19 +1,41 @@
 {% extends "base.html" %}
-{% block title %}Performance{% endblock %}
-{% block page_title %}Hiệu năng{% endblock %}
+{% block title %}Hiệu năng{% endblock %}
+{% block page_title %}Performance Logs{% endblock %}
+{% block page_subtitle %}Theo dõi FPS, latency và số người detect được theo từng frame log{% endblock %}
+
 {% block content %}
-<section class="panel">
-<div class="table-wrap">
-<table>
-<thead><tr><th>ID</th><th>Video</th><th>Source</th><th>Frame</th><th>FPS</th><th>Latency</th><th>Persons</th><th>Time</th></tr></thead>
-<tbody>
-{% for r in rows %}
-<tr><td>{{ r[0] }}</td><td>{{ r[1] }}</td><td>{{ r[2] }}</td><td>{{ r[3] }}</td><td>{{ "%.1f"|format(r[4]) }}</td><td>{{ "%.1f"|format(r[5]) }} ms</td><td>{{ r[6] }}</td><td>{{ r[7] }}</td></tr>
-{% else %}
-<tr><td colspan="8" class="empty">Chưa có dữ liệu.</td></tr>
-{% endfor %}
-</tbody>
-</table>
-</div>
+<section class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Video ID</th>
+                    <th>Nguồn</th>
+                    <th>Frame</th>
+                    <th>FPS</th>
+                    <th>Latency</th>
+                    <th>Person</th>
+                    <th>Thời gian</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in rows %}
+                <tr>
+                    <td>{{ r[0] }}</td>
+                    <td>{{ r[1] if r[1] is not none else '-' }}</td>
+                    <td><span class="pill">{{ r[2] }}</span></td>
+                    <td>{{ r[3] }}</td>
+                    <td>{{ "%.1f"|format(r[4] or 0) }}</td>
+                    <td>{{ "%.0f"|format(r[5] or 0) }} ms</td>
+                    <td>{{ r[6] }}</td>
+                    <td>{{ r[7] }}</td>
+                </tr>
+            {% else %}
+                <tr><td colspan="8" class="empty">Chưa có log hiệu năng.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </section>
 {% endblock %}

@@ -1,31 +1,188 @@
 {% extends "base.html" %}
-{% block title %}Camera{% endblock %}
+{% block title %}Browser Camera AI{% endblock %}
 {% block page_title %}Browser Camera AI{% endblock %}
+{% block page_subtitle %}Camera trình duyệt gửi frame về Flask để dự đoán realtime{% endblock %}
+
 {% block content %}
-<section class="stream-layout">
-<div class="video-panel">
-    <div class="video-header"><h2>Camera Preview</h2><span id="camStatus" class="live off">OFF</span></div>
-    <div class="video-frame"><video id="video" autoplay playsinline muted></video><canvas id="canvas" width="{{ canvas_w }}" height="{{ canvas_h }}" hidden></canvas></div>
-    <button class="btn primary" id="btnStart">Bắt đầu camera</button>
-    <button class="btn secondary" id="btnStop">Dừng</button>
-    <button class="btn danger-btn" id="btnReset">Reset AI</button>
-</div>
-<aside class="panel">
-    <h2>Kết quả realtime</h2>
-    <div id="labelBox" class="result neutral">READY</div>
-    <div class="info-row"><span>Fusion</span><b id="fusionScore">0.00</b></div>
-    <div class="info-row"><span>LSTM</span><b id="lstmScore">0.00</b></div>
-    <div class="info-row"><span>Rule</span><b id="ruleScore">0.00</b></div>
-    <div class="info-row"><span>Persons</span><b id="personCount">0</b></div>
-    <div class="info-row"><span>Fall</span><b id="fallValue">OFF</b></div>
-    <div class="info-row"><span>Running</span><b id="runningValue">OFF</b></div>
-    <div class="info-row"><span>FPS</span><b id="fpsValue">0.0</b></div>
-    <div class="info-row"><span>Latency</span><b id="latencyValue">0 ms</b></div>
-    <div class="info-row"><span>Sequence</span><b id="seqValue">0/{{ seq_len }}</b></div>
-</aside>
+<section class="camera-grid">
+    <div class="card camera-card">
+        <div class="camera-toolbar">
+            <button class="btn success" onclick="startCamera()">Bật camera</button>
+            <button class="btn danger" onclick="stopCamera()">Tắt camera</button>
+            <button class="btn ghost" onclick="resetAI()">Reset AI</button>
+        </div>
+
+        <div class="camera-stage">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas" hidden></canvas>
+            <div id="camStatus" class="cam-status off">OFF</div>
+        </div>
+    </div>
+
+    <div class="card result-panel">
+        <h3>Kết quả realtime</h3>
+        <div id="labelBox" class="big-result neutral">OFF</div>
+
+        <div class="progress-row">
+            <span>Sequence</span>
+            <b><span id="seq">0</span>/{{ seq_len }}</b>
+        </div>
+        <div class="bar"><div id="seqBar" style="width:0%"></div></div>
+
+        <div class="score-list">
+            <div><span>Fusion</span><b id="fusion">0.00</b></div>
+            <div><span>LSTM</span><b id="lstm">0.00</b></div>
+            <div><span>Rule</span><b id="rule">0.00</b></div>
+            <div><span>Interaction</span><b id="interaction">0.00</b></div>
+            <div><span>Motion</span><b id="motion">0.00</b></div>
+            <div><span>Person</span><b id="person">0</b></div>
+            <div><span>FPS</span><b id="fps">0.0</b></div>
+            <div><span>Latency</span><b><span id="latency">0</span> ms</b></div>
+            <div><span>Frame</span><b id="frameIndex">0</b></div>
+        </div>
+    </div>
 </section>
+
+<section class="card">
+    <h3>Cấu hình camera</h3>
+    <div class="config-grid">
+        <div><span>Send FPS</span><b>{{ send_fps }}</b></div>
+        <div><span>Canvas</span><b>{{ canvas_w }} x {{ canvas_h }}</b></div>
+        <div><span>JPEG quality</span><b>{{ camera_jpeg_quality }}</b></div>
+        <div><span>Feature every</span><b>{{ feature_every }}</b></div>
+        <div><span>LSTM every</span><b>{{ lstm_every }}</b></div>
+        <div><span>YOLO camera</span><b>{{ camera_yolo_every }}</b></div>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
 <script>
-window.CAMERA_CONFIG = {sendFps: {{ send_fps }}, canvasW: {{ canvas_w }}, canvasH: {{ canvas_h }}, jpegQuality: {{ camera_jpeg_quality }}};
+let stream = null;
+let timer = null;
+let sending = false;
+
+const SEND_FPS = {{ send_fps }};
+const CANVAS_W = {{ canvas_w }};
+const CANVAS_H = {{ canvas_h }};
+const JPEG_QUALITY = {{ camera_jpeg_quality }};
+const SEQ_LEN = {{ seq_len }};
+
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+
+canvas.width = CANVAS_W;
+canvas.height = CANVAS_H;
+
+function setStatus(on) {
+    const camStatus = document.getElementById("camStatus");
+    camStatus.innerText = on ? "LIVE" : "OFF";
+    camStatus.classList.toggle("off", !on);
+}
+
+async function startCamera() {
+    if (stream) return;
+
+    stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+            width: { ideal: 640 },
+            height: { ideal: 480 },
+            frameRate: { ideal: 25, max: 30 }
+        },
+        audio: false
+    });
+
+    video.srcObject = stream;
+
+    // BẬT CAMERA = RESET AI + BẮT ĐẦU GHI VIDEO OUTPUT LUÔN
+    await fetch("{{ url_for('start_camera_record_route') }}", { method: "POST" });
+
+    setStatus(true);
+    timer = setInterval(sendFrame, 1000 / SEND_FPS);
+}
+
+async function stopCamera() {
+    if (timer) clearInterval(timer);
+    timer = null;
+
+    // TẮT CAMERA = DỪNG GHI + LƯU FILE OUTPUT
+    let watchUrl = null;
+    try {
+        const res = await fetch("{{ url_for('stop_camera_record_route') }}", { method: "POST" });
+        const data = await res.json();
+        watchUrl = data.watch_url;
+    } catch (err) {
+        console.error(err);
+    }
+
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+    }
+    stream = null;
+    sending = false;
+    setStatus(false);
+    setResult({ label: "OFF" });
+
+    if (watchUrl) {
+        alert("Đã lưu video camera. Bạn có thể xem lại trong trang Video upload.");
+    }
+}
+
+async function resetAI() {
+    await fetch("{{ url_for('reset_camera_ai') }}", { method: "POST" });
+    setResult({ label: "RESET", sequence_len: 0 });
+}
+
+async function sendFrame() {
+    if (!stream || sending) return;
+    sending = true;
+
+    ctx.drawImage(video, 0, 0, CANVAS_W, CANVAS_H);
+    const imageData = canvas.toDataURL("image/jpeg", JPEG_QUALITY);
+
+    try {
+        const res = await fetch("{{ url_for('predict_frame') }}", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ image: imageData })
+        });
+        const data = await res.json();
+        setResult(data);
+    } catch (err) {
+        console.error(err);
+    } finally {
+        sending = false;
+    }
+}
+
+function fixed(value, n = 2) {
+    return Number(value || 0).toFixed(n);
+}
+
+function setResult(data) {
+    const label = data.label || "UNKNOWN";
+    const labelBox = document.getElementById("labelBox");
+    labelBox.innerText = label;
+
+    labelBox.className = "big-result neutral";
+    if (label === "FIGHT") labelBox.className = "big-result fight";
+    else if (label === "NO FIGHT") labelBox.className = "big-result safe";
+    else if (label.startsWith("LOADING")) labelBox.className = "big-result loading";
+
+    const seq = Number(data.sequence_len || 0);
+    document.getElementById("seq").innerText = seq;
+    document.getElementById("seqBar").style.width = Math.min(100, seq / SEQ_LEN * 100) + "%";
+
+    document.getElementById("fusion").innerText = fixed(data.fusion_score);
+    document.getElementById("lstm").innerText = fixed(data.lstm_score);
+    document.getElementById("rule").innerText = fixed(data.rule_score);
+    document.getElementById("interaction").innerText = fixed(data.interaction_score);
+    document.getElementById("motion").innerText = fixed(data.motion_score);
+    document.getElementById("person").innerText = data.person_count || 0;
+    document.getElementById("fps").innerText = fixed(data.fps, 1);
+    document.getElementById("latency").innerText = fixed(data.latency_ms, 0);
+    document.getElementById("frameIndex").innerText = data.frame_index || 0;
+}
 </script>
 {% endblock %}
-{% block scripts %}<script src="{{ url_for('static', filename='js/camera.js') }}"></script>{% endblock %}

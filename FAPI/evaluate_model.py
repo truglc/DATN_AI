@@ -1,125 +1,109 @@
+# evaluate_model.py
+
 import argparse
-from pathlib import Path
+import json
 import numpy as np
+from pathlib import Path
 from tensorflow.keras.models import load_model
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix, classification_report
 
 
-def find_key(data, candidates):
-    for key in candidates:
-        if key in data:
-            return key
-    raise KeyError(f"Không tìm thấy key trong npz. Cần một trong: {candidates}. Key hiện có: {list(data.keys())}")
+def load_npz(path):
+    data = np.load(path, allow_pickle=True)
+    keys = list(data.keys())
+    x_key = None
+    y_key = None
+    for k in ["X", "x", "features", "test_features", "arr_0"]:
+        if k in keys:
+            x_key = k
+            break
+    for k in ["y", "Y", "labels", "test_labels", "arr_1"]:
+        if k in keys:
+            y_key = k
+            break
+    if x_key is None or y_key is None:
+        raise ValueError(f"Không tìm thấy X/y trong {path}. Keys hiện có: {keys}")
+    return data[x_key], data[y_key]
 
 
-def to_binary_labels(y, positive_index=0):
+def to_label(y):
     y = np.asarray(y)
-
-    if y.ndim == 2 and y.shape[1] > 1:
-        return (np.argmax(y, axis=1) == positive_index).astype(int)
-
+    if y.ndim > 1 and y.shape[-1] > 1:
+        return np.argmax(y, axis=-1)
     return y.reshape(-1).astype(int)
 
 
-def prediction_scores(pred, positive_index=0):
+def pred_to_label(pred, fight_index=0, threshold=0.5):
     pred = np.asarray(pred)
-
-    if pred.ndim == 1:
-        return pred
-
-    if pred.ndim == 2 and pred.shape[1] == 1:
-        return pred[:, 0]
-
-    return pred[:, positive_index]
-
-
-def confusion_matrix_binary(y_true, y_pred):
-    y_true = np.asarray(y_true).astype(int)
-    y_pred = np.asarray(y_pred).astype(int)
-
-    tp = int(np.sum((y_true == 1) & (y_pred == 1)))
-    tn = int(np.sum((y_true == 0) & (y_pred == 0)))
-    fp = int(np.sum((y_true == 0) & (y_pred == 1)))
-    fn = int(np.sum((y_true == 1) & (y_pred == 0)))
-
-    return tn, fp, fn, tp
-
-
-def safe_div(a, b):
-    return a / b if b != 0 else 0.0
+    if pred.ndim == 1 or pred.shape[-1] == 1:
+        return (pred.reshape(-1) >= threshold).astype(int)
+    # Mặc định class index 0 là FIGHT theo app.py.
+    # Để quy ước nhị phân: 1 = FIGHT, 0 = NO_FIGHT
+    return (np.argmax(pred, axis=-1) == fight_index).astype(int)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Evaluate CNN/VGG16 + LSTM violence model")
-    parser.add_argument("--model", required=True, help="Đường dẫn file .h5 model")
-    parser.add_argument("--test_npz", required=True, help="Đường dẫn test_features.npz")
-    parser.add_argument("--threshold", type=float, default=0.5, help="Ngưỡng phân loại binary/sigmoid")
-    parser.add_argument("--positive_index", type=int, default=0, help="Với softmax 2 lớp: index của lớp FIGHT")
-    parser.add_argument("--output_dir", default="eval_outputs", help="Thư mục lưu metrics.txt")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model", required=True, help="Path tới .h5 model")
+    parser.add_argument("--data", required=True, help="Path tới .npz test_features")
+    parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument("--fight-index", type=int, default=0, help="Softmax index của lớp FIGHT")
+    parser.add_argument("--out", default="evaluation_result.json")
     args = parser.parse_args()
 
     model_path = Path(args.model)
-    test_npz = Path(args.test_npz)
-    output_dir = Path(args.output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
-
+    data_path = Path(args.data)
     if not model_path.exists():
-        raise FileNotFoundError(f"Không thấy model: {model_path}")
-
-    if not test_npz.exists():
-        raise FileNotFoundError(f"Không thấy file test npz: {test_npz}")
-
-    data = np.load(test_npz)
-
-    x_key = find_key(data, ["X", "x", "features", "test_features", "arr_0"])
-    y_key = find_key(data, ["y", "Y", "labels", "test_labels", "arr_1"])
-
-    X = np.asarray(data[x_key]).astype(np.float32)
-    y_raw = np.asarray(data[y_key])
-
-    y_true = to_binary_labels(y_raw, positive_index=args.positive_index)
+        raise FileNotFoundError(model_path)
+    if not data_path.exists():
+        raise FileNotFoundError(data_path)
 
     print("Loading model:", model_path)
     model = load_model(str(model_path))
+    print("Loading data:", data_path)
+    X, y = load_npz(str(data_path))
 
-    print("X shape:", X.shape)
-    print("y shape:", y_raw.shape)
-
+    y_true_raw = to_label(y)
     pred = model.predict(X, verbose=1)
-    scores = prediction_scores(pred, positive_index=args.positive_index)
+    y_pred = pred_to_label(pred, fight_index=args.fight_index, threshold=args.threshold)
 
-    y_pred = (scores >= args.threshold).astype(int)
+    # Nếu y_true đang là softmax class 0/1 theo dataset, quy ước lại: 1 = FIGHT nếu class = fight_index.
+    if y_true_raw.max() > 1 or len(np.unique(y_true_raw)) > 2:
+        y_true = y_true_raw
+    else:
+        # Với train cũ nếu y_true=0 là FIGHT, đổi thành 1=FIGHT.
+        y_true = (y_true_raw == args.fight_index).astype(int)
 
-    tn, fp, fn, tp = confusion_matrix_binary(y_true, y_pred)
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred, zero_division=0)
+    rec = recall_score(y_true, y_pred, zero_division=0)
+    f1 = f1_score(y_true, y_pred, zero_division=0)
+    cm = confusion_matrix(y_true, y_pred)
 
-    accuracy = safe_div(tp + tn, tp + tn + fp + fn)
-    precision = safe_div(tp, tp + fp)
-    recall = safe_div(tp, tp + fn)
-    f1 = safe_div(2 * precision * recall, precision + recall)
+    print("\n===== EVALUATION RESULT =====")
+    print(f"Accuracy : {acc:.4f}")
+    print(f"Precision: {prec:.4f}")
+    print(f"Recall   : {rec:.4f}")
+    print(f"F1-score : {f1:.4f}")
+    print("Confusion matrix:")
+    print(cm)
+    print("\nClassification report:")
+    print(classification_report(y_true, y_pred, zero_division=0))
 
-    result = f"""
-===== MODEL EVALUATION =====
-Model: {model_path}
-Test file: {test_npz}
-Feature key: {x_key}
-Label key: {y_key}
-Threshold: {args.threshold}
-Positive index: {args.positive_index}
-
-Accuracy : {accuracy:.4f}
-Precision: {precision:.4f}
-Recall   : {recall:.4f}
-F1-score : {f1:.4f}
-
-Confusion matrix:
-TN={tn}  FP={fp}
-FN={fn}  TP={tp}
-"""
-
-    print(result)
-
-    metrics_path = output_dir / "metrics.txt"
-    metrics_path.write_text(result, encoding="utf-8")
-    print("Saved:", metrics_path)
+    result = {
+        "accuracy": float(acc),
+        "precision": float(prec),
+        "recall": float(rec),
+        "f1_score": float(f1),
+        "confusion_matrix": cm.tolist(),
+        "model": str(model_path),
+        "data": str(data_path),
+        "threshold": args.threshold,
+        "fight_index": args.fight_index
+    }
+    with open(args.out, "w", encoding="utf-8") as f:
+        json.dump(result, f, ensure_ascii=False, indent=2)
+    print("\nSaved:", args.out)
 
 
 if __name__ == "__main__":
