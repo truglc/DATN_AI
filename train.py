@@ -41,7 +41,7 @@ def print_progress(count, max_count):
 
 
 
-in_dir = r"C:\Users\admin\Downloads\hockey-fight-vidoes\data"
+in_dir = r"/content/dataset/data"
 
 
 
@@ -466,7 +466,7 @@ epoch = 200
 # batchS = 500
 batchS = 16
 history = model.fit(np.array(data[0:720]), np.array(target[0:720]), epochs=epoch,
-                    validation_data=(np.array(data[720:]), np.array(target[720:])), 
+                    validation_data=(np.array(data[720:]), np.array(target[720:])),
                     batch_size=batchS, verbose=2)
 
 model.save("violence_model.h5")
@@ -518,7 +518,6 @@ plt.xlabel('epoch')
 plt.legend(['train', 'validation'], loc='upper left')
 plt.savefig('destination_path1.eps', format='eps', dpi=1000)
 plt.show()
-
 
 
 

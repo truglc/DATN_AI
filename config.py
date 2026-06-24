@@ -1,27 +1,26 @@
-# config.py
-# ============================================================
-# Cấu hình hệ thống, đường dẫn thư mục, model path.
-# ============================================================
+
+# Cấu hình chung, thư mục, Flask app
 
 import os
 from pathlib import Path
+from flask import Flask
 
 APP_DIR = Path(__file__).parent
 UPLOAD_DIR = APP_DIR / "uploads"
 OUTPUT_DIR = APP_DIR / "outputs"
 SNAPSHOT_DIR = APP_DIR / "snapshots"
 DB_PATH = APP_DIR / "database.db"
+for d in [UPLOAD_DIR, OUTPUT_DIR, SNAPSHOT_DIR]:
+    d.mkdir(exist_ok=True)
 
-for folder in [UPLOAD_DIR, OUTPUT_DIR, SNAPSHOT_DIR]:
-    folder.mkdir(exist_ok=True)
+MODEL_PATH = Path(os.environ.get("MODEL_PATH", "/content/drive/MyDrive/model/best_violence_model.h5"))
 
-MODEL_PATH = Path(
-    os.environ.get(
-        "MODEL_PATH",
-        "/content/drive/MyDrive/model/best_violence_model.h5"
-    )
-)
+app = Flask(__name__)
+app.config["UPLOAD_FOLDER"] = str(UPLOAD_DIR)
 
+# =========================
+# CONFIG
+# =========================
 CONFIG = {
     "USE_YOLO": True,
     "USE_DEEPSORT": False,
@@ -56,10 +55,10 @@ CONFIG = {
     "IOU_THRESHOLD": 0.05,
 
     # Fall/running là thành phần rule, không phải nhãn riêng
-    "FALL_ASPECT_RATIO_THRESHOLD": 1.15,
-    "FALL_CENTER_DROP_THRESHOLD": 25.0,
-    "FALL_HEIGHT_DROP_RATIO": 0.25,
-    "RUN_SPEED_THRESHOLD": 28.0,
+    "FALL_ASPECT_RATIO_THRESHOLD": 1.15,    # bbox nằm ngang: width/height cao
+    "FALL_CENTER_DROP_THRESHOLD": 25.0,     # tâm người rơi xuống nhanh
+    "FALL_HEIGHT_DROP_RATIO": 0.25,         # chiều cao bbox giảm nhanh
+    "RUN_SPEED_THRESHOLD": 28.0,            # pixels/frame theo track ID
 
     # Fusion weights
     "LSTM_WEIGHT": 0.70,
@@ -74,6 +73,15 @@ CONFIG = {
     "PERFORMANCE_LOG_EVERY": 60,
     "PREDICTION_LOG_EVERY": 10,
 }
+
+tracker = None
+model_vl = None
+feature_extractor = None
+
+tracker = None
+model_vl = None
+feature_extractor = None
+model_yolo = None
 
 
 def cfg(key):

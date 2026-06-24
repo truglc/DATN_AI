@@ -1,4 +1,3 @@
-# evaluate_model.py
 
 import argparse
 import json

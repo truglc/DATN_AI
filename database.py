@@ -1,7 +1,5 @@
-# database.py
-# ============================================================
-# SQLite database layer: videos, alerts, performance, prediction_logs.
-# ============================================================
+
+# Database SQLite: tạo bảng + insert/update log
 
 import sqlite3
 from datetime import datetime
@@ -22,7 +20,6 @@ def ensure_column(cursor, table, column, definition):
 def init_db():
     conn = get_conn()
     c = conn.cursor()
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS videos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,7 +30,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS alerts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,7 +47,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS performance (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,7 +59,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
     c.execute("""
         CREATE TABLE IF NOT EXISTS prediction_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -86,7 +80,6 @@ def init_db():
             created_at TEXT
         )
     """)
-
     ensure_column(c, "videos", "output_filename", "TEXT")
     conn.commit()
     conn.close()
@@ -138,10 +131,8 @@ def insert_performance(video_id, source, frame_index, fps, latency_ms, person_co
     c.execute("""
         INSERT INTO performance(video_id, source, frame_index, fps, latency_ms, person_count, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        video_id, source, int(frame_index), float(fps), float(latency_ms), int(person_count),
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ))
+    """, (video_id, source, int(frame_index), float(fps), float(latency_ms), int(person_count),
+          datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     conn.commit()
     conn.close()
 
@@ -156,24 +147,9 @@ def insert_prediction_log(video_id, source, frame_index, label, fusion_score, ls
                                     iou_score, interaction_score, motion_score, fall_score, running_score,
                                     person_count, fps, latency_ms, created_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        video_id, source, int(frame_index), label, float(fusion_score), float(lstm_score), float(rule_score),
-        float(iou_score), float(interaction_score), float(motion_score), float(fall_score), float(running_score),
-        int(person_count), float(fps), float(latency_ms), datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    ))
+    """, (video_id, source, int(frame_index), label, float(fusion_score), float(lstm_score), float(rule_score),
+          float(iou_score), float(interaction_score), float(motion_score), float(fall_score), float(running_score),
+          int(person_count), float(fps), float(latency_ms), datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
     conn.commit()
     conn.close()
 
-
-def fetch_dashboard_counts():
-    conn = get_conn()
-    c = conn.cursor()
-    c.execute("SELECT COUNT(*) FROM videos")
-    total_videos = c.fetchone()[0]
-    c.execute("SELECT COUNT(*) FROM alerts")
-    total_alerts = c.fetchone()[0]
-    c.execute("SELECT AVG(fps) FROM performance")
-    avg_fps = c.fetchone()[0]
-    avg_fps = 0 if avg_fps is None else round(avg_fps, 1)
-    conn.close()
-    return total_videos, total_alerts, avg_fps
